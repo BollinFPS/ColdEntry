@@ -58,7 +58,8 @@ void ACEPlayerController::PlayerTick(float Dt)
 	}
 	if (G->bAutoPlay)
 	{
-		if (G->PlayerChar && GetViewTarget() != G->PlayerChar) SetViewTarget(G->PlayerChar);
+		AActor* Want = G->ViewOverride ? G->ViewOverride.Get() : (AActor*)G->PlayerChar.Get();
+		if (Want && GetViewTarget() != Want) SetViewTarget(Want);
 	}
 	else
 	{

@@ -12,7 +12,7 @@ enum class ECESurf : uint8
 {
 	Concrete, Block, Floor, Drywall, Wood, Metal, Steel, Glass, Grate, Crate,
 	Asphalt, Ceiling, Hazard, Emissive, Tan, Navy, Olive, Charcoal, Gunmetal, Polymer,
-	Skin, RedDot, Rubber, Paint, Count UMETA(Hidden)
+	Skin, RedDot, Rubber, Paint, Container, ContainerB, Count UMETA(Hidden)
 };
 
 // Bullet penetration classes. Solid stops everything.

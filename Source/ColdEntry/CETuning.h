@@ -112,13 +112,21 @@ public:
 	UPROPERTY(Config, EditAnywhere, Category = "Visuals") float ExposureMinEV = -2.5f;
 	UPROPERTY(Config, EditAnywhere, Category = "Visuals") float ExposureMaxEV = 4.f;
 	UPROPERTY(Config, EditAnywhere, Category = "Visuals") float ExposureBias = 0.4f;
+	UPROPERTY(Config, EditAnywhere, Category = "Visuals") float FogDensity = 0.012f;      // light haze for depth outdoors
+	UPROPERTY(Config, EditAnywhere, Category = "Visuals") float WhiteBalance = 5700.f;    // K; lower = cooler image
 
 	// ---------------- Character models (UE template mannequin, rifle, pistol) ----------------
 	// Off = the old box-built operators and viewmodels.
 	UPROPERTY(Config, EditAnywhere, Category = "Models") bool bRealCharacters = true;
-	UPROPERTY(Config, EditAnywhere, Category = "Models") FLinearColor AttackTint = FLinearColor(0.42f, 0.34f, 0.22f);
-	UPROPERTY(Config, EditAnywhere, Category = "Models") FLinearColor DefendTint = FLinearColor(0.11f, 0.15f, 0.22f);
-	UPROPERTY(Config, EditAnywhere, Category = "Models") FLinearColor UnderTint = FLinearColor(0.07f, 0.07f, 0.07f); // legs/gloves
+	// SWAT operator (imported by Import_Swat.bat) instead of the template mannequin, when its assets exist.
+	UPROPERTY(Config, EditAnywhere, Category = "Models") bool bSwatCharacters = true;
+	UPROPERTY(Config, EditAnywhere, Category = "Models") FLinearColor SwatAttackTint = FLinearColor(1.6f, 1.0f, 0.45f);   // multiplies the uniform texture
+	UPROPERTY(Config, EditAnywhere, Category = "Models") FLinearColor SwatDefendTint = FLinearColor(0.75f, 0.85f, 1.15f);
+	UPROPERTY(Config, EditAnywhere, Category = "Models") float SwatGripRise = 0.f;   // cm the weapon sits above the firing-hand palm
+	UPROPERTY(Config, EditAnywhere, Category = "Models") FLinearColor AttackTint = FLinearColor(0.20f, 0.17f, 0.10f);
+	UPROPERTY(Config, EditAnywhere, Category = "Models") FLinearColor DefendTint = FLinearColor(0.035f, 0.05f, 0.085f);
+	UPROPERTY(Config, EditAnywhere, Category = "Models") FLinearColor UnderTint = FLinearColor(0.03f, 0.03f, 0.032f); // legs/gloves
+	UPROPERTY(Config, EditAnywhere, Category = "Models") float UniformRoughness = 0.85f;  // matte fabric rather than the template's glossy paint
 	// First-person weapon mesh placement inside the viewmodel pivot (sight line = pivot X axis).
 	UPROPERTY(Config, EditAnywhere, Category = "Models") FVector FPRifleOffset = FVector(0.f, 0.f, -18.1f);
 	UPROPERTY(Config, EditAnywhere, Category = "Models") FVector FPPistolOffset = FVector(-2.f, 0.f, -13.4f);

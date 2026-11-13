@@ -18,6 +18,12 @@
 #include "DrawDebugHelpers.h"
 #include "Kismet/GameplayStatics.h"
 #include "Misc/CommandLine.h"
+#include "Misc/Paths.h"
+#include "GameFramework/HUD.h"
+#include "GameFramework/PlayerController.h"
+#include "UnrealClient.h"
+#include "ShaderCompiler.h"
+#include "DistanceFieldAtlas.h"
 
 static const TCHAR* SquadNames[5] = { TEXT("You"), TEXT("Kestrel"), TEXT("Vance"), TEXT("Moss"), TEXT("Okafor") };
 static const TCHAR* EnemyNames[5] = { TEXT("Hale"), TEXT("Brandt"), TEXT("Sato"), TEXT("Ilic"), TEXT("Mercer") };
@@ -36,7 +42,8 @@ void ACEGameMode::StartPlay()
 {
 	Super::StartPlay();
 	const UCETuning* T = UCETuning::Get();
-	bAutoPlay = T->bAutoPlay || FParse::Param(FCommandLine::Get(), TEXT("ceauto"));
+	bShotTour = FParse::Param(FCommandLine::Get(), TEXT("ceshots"));
+	bAutoPlay = bShotTour || T->bAutoPlay || FParse::Param(FCommandLine::Get(), TEXT("ceauto"));
 	bSquadAttacking = T->bPlayerStartsAttacking;
 
 	FActorSpawnParameters P;
@@ -285,10 +292,174 @@ void ACEGameMode::Tick(float Dt)
 {
 	Super::Tick(Dt);
 	if (bDebugNav) DrawNavDebug();
+	if (bShotTour) TickShotTour();
 	if (Phase == ECEPhase::Menu || Phase == ECEPhase::MatchEnd) return;
 	PhaseLeft -= Dt;
 	UpdateRules(Dt);
 	UpdateCameraIntel(Dt);
+}
+
+// ---------------------------------------------------------------------------------------------
+// Shot tour (-ceshots): a repeatable set of views for judging the visual pass. Prep is held so the
+// teams stay put; each view waits for shaders/distance fields and exposure before it is saved.
+// Add -celineup to also photograph one of every scanned prop, unrotated, outside the south wall.
+// ---------------------------------------------------------------------------------------------
+namespace
+{
+	enum class ECEShotKind { Fixed, Attacker, Defender, FirstPerson, Death };
+	struct FCEShot { FString Name; ECEShotKind Kind; FVector PosM; FRotator Rot; };
+	TArray<FCEShot> GShots;
+	TWeakObjectPtr<ACECharacter> GShotSubject;
+	FVector GShotOffset = FVector::ZeroVector;
+}
+
+bool ACEGameMode::SetupShot(int32 Idx)
+{
+	const FCEShot& S = GShots[Idx];
+	GShotSubject.Reset();
+	APlayerController* PC = GetWorld()->GetFirstPlayerController();
+	if (PC && PC->GetHUD()) PC->GetHUD()->bShowHUD = S.Kind == ECEShotKind::FirstPerson;
+	if (S.Kind == ECEShotKind::FirstPerson)
+	{
+		ViewOverride = PlayerChar.Get();
+		return PlayerChar != nullptr;
+	}
+	FVector Pos = S.PosM * 100.f;
+	FRotator Rot = S.Rot;
+	if (S.Kind != ECEShotKind::Fixed)
+	{
+		const ECETeam Want = S.Kind == ECEShotKind::Defender ? ECETeam::Defend : ECETeam::Attack;
+		ACECharacter* Subject = nullptr;
+		for (ACECharacter* C : Characters) if (C && C->IsAlive() && C->Team == Want && C != PlayerChar) { Subject = C; break; }
+		if (!Subject) return false;
+		// three-quarter front view from the first direction with a clear line to the subject; the camera
+		// then keeps that offset while the bot goes about its business
+		const FVector Focus = Subject->GetActorLocation() + FVector(0, 0, 8.f);
+		const float Base = Subject->GetActorRotation().Yaw;
+		GShotOffset = FRotator(0, Base + 25.f, 0).Vector() * 230.f + FVector(0, 0, 12.f);
+		for (float Off : { 25.f, -25.f, 60.f, -60.f, 100.f, -100.f, 150.f, -150.f, 180.f })
+		{
+			const FVector Try = FRotator(0, Base + Off, 0).Vector() * 230.f + FVector(0, 0, 12.f);
+			if (HasLineOfSight(Focus + Try, Focus, Subject)) { GShotOffset = Try; break; }
+		}
+		GShotSubject = Subject;
+		if (S.Kind == ECEShotKind::Death) Subject->ApplyExplosion(1000.f, nullptr, Subject->GetActorLocation() + Subject->GetActorForwardVector() * 100.f, TEXT("shot tour"));
+		Pos = Focus + GShotOffset;
+		Rot = (-GShotOffset).Rotation();
+	}
+	ShotCam->SetActorLocationAndRotation(Pos, Rot);
+	ViewOverride = ShotCam.Get();
+	return true;
+}
+
+void ACEGameMode::TickShotTour()
+{
+	const double Real = FPlatformTime::Seconds();
+	if (TourStart == 0.0)
+	{
+		TourStart = QuietSince = Real;
+		FActorSpawnParameters P;
+		P.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+		ShotCam = GetWorld()->SpawnActor<ACameraActor>(FVector::ZeroVector, FRotator::ZeroRotator, P);
+		ShotCam->GetCameraComponent()->bConstrainAspectRatio = false;
+		ShotCam->GetCameraComponent()->SetFieldOfView(80.f);
+
+		GShots.Reset();
+		auto Add = [](const TCHAR* Name, ECEShotKind Kind, const FVector& PosM = FVector::ZeroVector, const FRotator& Rot = FRotator::ZeroRotator)
+		{
+			GShots.Add({ Name, Kind, PosM, Rot });
+		};
+		Add(TEXT("01_attacker"), ECEShotKind::Attacker);
+		Add(TEXT("02_defender"), ECEShotKind::Defender);
+		Add(TEXT("03_first_person"), ECEShotKind::FirstPerson);
+		Add(TEXT("03a_anim_reload"), ECEShotKind::Attacker);   // the subject is put mid-animation as the picture is taken
+		Add(TEXT("03b_anim_hit"), ECEShotKind::Attacker);
+		Add(TEXT("03c_anim_throw"), ECEShotKind::Attacker);
+		Add(TEXT("04_exterior_wide"), ECEShotKind::Fixed, FVector(-22.f, -16.f, 15.f), FRotator(-24.f, 38.f, 0.f));
+		Add(TEXT("05_west_yard"), ECEShotKind::Fixed, FVector(-20.f, 16.f, 1.7f), FRotator(2.f, -8.f, 0.f));
+		Add(TEXT("06_loading_bay"), ECEShotKind::Fixed, FVector(1.5f, 2.2f, 1.7f), FRotator(-2.f, 62.f, 0.f));
+		Add(TEXT("07_corridor"), ECEShotKind::Fixed, FVector(15.5f, 1.f, 1.7f), FRotator(0.f, 90.f, 0.f));
+		Add(TEXT("08_workshop"), ECEShotKind::Fixed, FVector(37.f, 9.f, 1.7f), FRotator(-4.f, 212.f, 0.f));
+		Add(TEXT("09_comms"), ECEShotKind::Fixed, FVector(30.3f, 17.3f, 1.7f), FRotator(-6.f, 218.f, 0.f));
+		Add(TEXT("10_office"), ECEShotKind::Fixed, FVector(17.6f, 27.2f, 1.7f), FRotator(-8.f, -48.f, 0.f));
+		Add(TEXT("11_break_room"), ECEShotKind::Fixed, FVector(24.8f, 14.8f, 5.2f), FRotator(-8.f, 55.f, 0.f));
+		Add(TEXT("12_south_yard"), ECEShotKind::Fixed, FVector(27.f, -20.f, 1.7f), FRotator(3.f, 100.f, 0.f));
+		// prep is released from here on, so these catch the teams on the move; the last one drops a bot to show the death
+		Add(TEXT("13_attacker_moving_a"), ECEShotKind::Attacker);
+		Add(TEXT("14_attacker_moving_b"), ECEShotKind::Attacker);
+		Add(TEXT("15_attacker_moving_c"), ECEShotKind::Attacker);
+		Add(TEXT("16_defender_moving"), ECEShotKind::Defender);
+		Add(TEXT("17_death"), ECEShotKind::Death);
+		if (FParse::Param(FCommandLine::Get(), TEXT("celineup")) && Level)
+		{
+			// the camera looks north, so stepping west keeps the list order left to right
+			const TArray<FVector> At = Level->SpawnPropLineup(FVector(6000.f, -4000.f, 0.f), FVector(-220.f, 0.f, 0.f));
+			for (int32 i = 0; i < At.Num(); i += 5)
+			{
+				const int32 Last = FMath::Min(i + 4, At.Num() - 1);
+				const FVector Mid = (At[i] + At[Last]) * 0.5f;
+				GShots.Add({ FString::Printf(TEXT("props_%02d_to_%02d"), i, Last), ECEShotKind::Fixed,
+					FVector(Mid.X / 100.f, Mid.Y / 100.f - 7.6f, 1.5f), FRotator(-5.f, 90.f, 0.f) });
+			}
+		}
+	}
+	const bool bHoldPrep = ShotIdx < 0 || (GShots.IsValidIndex(ShotIdx) && !GShots[ShotIdx].Name.Contains(TEXT("moving")) && GShots[ShotIdx].Kind != ECEShotKind::Death);
+	if (Phase == ECEPhase::Prep && bHoldPrep) PhaseLeft = FMath::Max(PhaseLeft, 8.f);
+	if (GShotSubject.IsValid() && ShotCam && ViewOverride.Get() == ShotCam.Get())
+	{
+		const FVector Focus = GShotSubject->GetActorLocation() + FVector(0, 0, 8.f);
+		if (!HasLineOfSight(Focus + GShotOffset, Focus, GShotSubject.Get()))
+		{
+			const float Base = GShotOffset.Rotation().Yaw;
+			for (float Off : { 30.f, -30.f, 60.f, -60.f, 90.f, -90.f, 135.f, -135.f, 180.f })
+			{
+				const FVector Try = FRotator(0, Base + Off, 0).Vector() * 230.f + FVector(0, 0, 12.f);
+				if (HasLineOfSight(Focus + Try, Focus, GShotSubject.Get())) { GShotOffset = Try; break; }
+			}
+		}
+		ShotCam->SetActorLocationAndRotation(Focus + GShotOffset, (-GShotOffset).Rotation());
+	}
+	const bool bBusy = (GShaderCompilingManager && GShaderCompilingManager->IsCompiling())
+		|| (GDistanceFieldAsyncQueue && GDistanceFieldAsyncQueue->GetNumOutstandingTasks() > 0);
+	if (bBusy) QuietSince = Real;
+	const bool bQuiet = Real - QuietSince > 3.0;
+
+	if (ShotIdx < 0)
+	{
+		// warm-up: everything compiled and the round has spawned its teams
+		if (Phase != ECEPhase::Prep) return;
+		if ((Real - TourStart > 15.0 && bQuiet) || Real - TourStart > 900.0)
+		{
+			ShotIdx = 0; bShotTaken = false; ShotStart = Real;
+			if (!SetupShot(ShotIdx)) ShotStart = Real - 200.0;
+		}
+		return;
+	}
+	if (ShotIdx >= GShots.Num())
+	{
+		if (Real - ShotStart > 1.5) { bShotTour = false; FPlatformMisc::RequestExit(false); }
+		return;
+	}
+	if (!bShotTaken)
+	{
+		// let exposure, Lumen and texture streaming settle on the new view
+		if (Real - ShotStart > 100.0) { bShotTaken = true; ShotStart = Real - 10.0; }   // subject missing or never quiet: skip
+		else if (Real - ShotStart > 5.0 && bQuiet)
+		{
+			const FString File = FPaths::ConvertRelativePathToFull(FPaths::ProjectSavedDir() / TEXT("Shots") / GShots[ShotIdx].Name + TEXT(".png"));
+			if (GShotSubject.IsValid() && GShots[ShotIdx].Name.Contains(TEXT("_anim_")))
+				GShotSubject->DebugAnim(GShots[ShotIdx].Name.Contains(TEXT("reload")) ? 0 : GShots[ShotIdx].Name.Contains(TEXT("hit")) ? 1 : 2);
+			FScreenshotRequest::RequestScreenshot(File, true, false);
+			UE_LOG(LogColdEntry, Log, TEXT("[CE-Shot] %s"), *File);
+			bShotTaken = true; ShotStart = Real;
+		}
+		return;
+	}
+	if (Real - ShotStart > 1.0)
+	{
+		++ShotIdx; bShotTaken = false; ShotStart = Real;
+		if (ShotIdx < GShots.Num() && !SetupShot(ShotIdx)) ShotStart = Real - 200.0;
+	}
 }
 
 void ACEGameMode::UpdateRules(float Dt)
