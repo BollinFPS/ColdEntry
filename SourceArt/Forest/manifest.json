@@ -1,0 +1,221 @@
+{
+  "license": "CC0",
+  "provider": "Poly Haven",
+  "models": {
+    "fir_tree_01": {
+      "id": "fir_tree_01",
+      "source": "https://polyhaven.com/a/fir_tree_01",
+      "materials": {
+        "bark": {
+          "BaseColor": "SourceArt/Forest/Downloaded/fir_tree_01/bark_BaseColor.jpg",
+          "Normal": "SourceArt/Forest/Downloaded/fir_tree_01/bark_Normal.jpg",
+          "ARM": "SourceArt/Forest/Downloaded/fir_tree_01/bark_ARM.jpg",
+          "Roughness": "SourceArt/Forest/Downloaded/fir_tree_01/bark_Roughness.jpg",
+          "AO": "SourceArt/Forest/Downloaded/fir_tree_01/bark_AO.jpg"
+        },
+        "trunk_a": {
+          "BaseColor": "SourceArt/Forest/Downloaded/fir_tree_01/trunk_a_BaseColor.jpg",
+          "Normal": "SourceArt/Forest/Downloaded/fir_tree_01/trunk_a_Normal.jpg",
+          "ARM": "SourceArt/Forest/Downloaded/fir_tree_01/trunk_a_ARM.jpg",
+          "Roughness": "SourceArt/Forest/Downloaded/fir_tree_01/trunk_a_Roughness.jpg",
+          "AO": "SourceArt/Forest/Downloaded/fir_tree_01/trunk_a_AO.jpg"
+        },
+        "trunk_b": {
+          "BaseColor": "SourceArt/Forest/Downloaded/fir_tree_01/trunk_b_BaseColor.jpg",
+          "Normal": "SourceArt/Forest/Downloaded/fir_tree_01/trunk_b_Normal.jpg",
+          "ARM": "SourceArt/Forest/Downloaded/fir_tree_01/trunk_b_ARM.jpg",
+          "Roughness": "SourceArt/Forest/Downloaded/fir_tree_01/trunk_b_Roughness.jpg",
+          "AO": "SourceArt/Forest/Downloaded/fir_tree_01/trunk_b_AO.jpg"
+        },
+        "trunk_c": {
+          "BaseColor": "SourceArt/Forest/Downloaded/fir_tree_01/trunk_c_BaseColor.jpg",
+          "Normal": "SourceArt/Forest/Downloaded/fir_tree_01/trunk_c_Normal.jpg",
+          "ARM": "SourceArt/Forest/Downloaded/fir_tree_01/trunk_c_ARM.jpg",
+          "Roughness": "SourceArt/Forest/Downloaded/fir_tree_01/trunk_c_Roughness.jpg",
+          "AO": "SourceArt/Forest/Downloaded/fir_tree_01/trunk_c_AO.jpg"
+        },
+        "twig": {
+          "BaseColor": "SourceArt/Forest/Downloaded/fir_tree_01/twig_BaseColor.jpg",
+          "Normal": "SourceArt/Forest/Downloaded/fir_tree_01/twig_Normal.jpg",
+          "ARM": "SourceArt/Forest/Downloaded/fir_tree_01/twig_ARM.jpg",
+          "Alpha": "SourceArt/Forest/Downloaded/fir_tree_01/twig_Alpha.png",
+          "Roughness": "SourceArt/Forest/Downloaded/fir_tree_01/twig_Roughness.jpg",
+          "AO": "SourceArt/Forest/Downloaded/fir_tree_01/twig_AO.jpg"
+        }
+      },
+      "fbx": "SourceArt/Forest/Downloaded/fir_tree_01/fir_tree_01.fbx",
+      "blend": "SourceArt/Forest/Downloaded/fir_tree_01/fir_tree_01.blend"
+    },
+    "pine_sapling_small": {
+      "id": "pine_sapling_small",
+      "source": "https://polyhaven.com/a/pine_sapling_small",
+      "materials": {
+        "bark": {
+          "BaseColor": "SourceArt/Forest/Downloaded/pine_sapling_small/bark_BaseColor.jpg",
+          "Normal": "SourceArt/Forest/Downloaded/pine_sapling_small/bark_Normal.jpg",
+          "ARM": "SourceArt/Forest/Downloaded/pine_sapling_small/bark_ARM.jpg",
+          "Roughness": "SourceArt/Forest/Downloaded/pine_sapling_small/bark_Roughness.jpg",
+          "AO": "SourceArt/Forest/Downloaded/pine_sapling_small/bark_AO.jpg"
+        },
+        "twig": {
+          "BaseColor": "SourceArt/Forest/Downloaded/pine_sapling_small/twig_BaseColor.jpg",
+          "Normal": "SourceArt/Forest/Downloaded/pine_sapling_small/twig_Normal.jpg",
+          "ARM": "SourceArt/Forest/Downloaded/pine_sapling_small/twig_ARM.jpg",
+          "Alpha": "SourceArt/Forest/Downloaded/pine_sapling_small/twig_Alpha.png",
+          "Roughness": "SourceArt/Forest/Downloaded/pine_sapling_small/twig_Roughness.jpg",
+          "AO": "SourceArt/Forest/Downloaded/pine_sapling_small/twig_AO.jpg"
+        }
+      },
+      "fbx": "SourceArt/Forest/Downloaded/pine_sapling_small/pine_sapling_small.fbx",
+      "blend": "SourceArt/Forest/Downloaded/pine_sapling_small/pine_sapling_small.blend"
+    },
+    "fern_02": {
+      "id": "fern_02",
+      "source": "https://polyhaven.com/a/fern_02",
+      "materials": {
+        "": {
+          "BaseColor": "SourceArt/Forest/Downloaded/fern_02/main_BaseColor.jpg",
+          "Normal": "SourceArt/Forest/Downloaded/fern_02/main_Normal.jpg",
+          "ARM": "SourceArt/Forest/Downloaded/fern_02/main_ARM.jpg",
+          "Alpha": "SourceArt/Forest/Downloaded/fern_02/main_Alpha.png",
+          "Roughness": "SourceArt/Forest/Downloaded/fern_02/main_Roughness.jpg",
+          "AO": "SourceArt/Forest/Downloaded/fern_02/main_AO.jpg"
+        }
+      },
+      "fbx": "SourceArt/Forest/Downloaded/fern_02/fern_02.fbx",
+      "blend": "SourceArt/Forest/Downloaded/fern_02/fern_02.blend"
+    },
+    "grass_medium_01": {
+      "id": "grass_medium_01",
+      "source": "https://polyhaven.com/a/grass_medium_01",
+      "materials": {
+        "dry": {
+          "BaseColor": "SourceArt/Forest/Downloaded/grass_medium_01/dry_BaseColor.jpg",
+          "Alpha": "SourceArt/Forest/Downloaded/grass_medium_01/dry_Alpha.png",
+          "Roughness": "SourceArt/Forest/Downloaded/grass_medium_01/dry_Roughness.jpg",
+          "AO": "SourceArt/Forest/Downloaded/grass_medium_01/dry_AO.jpg"
+        },
+        "": {
+          "BaseColor": "SourceArt/Forest/Downloaded/grass_medium_01/main_BaseColor.jpg",
+          "Normal": "SourceArt/Forest/Downloaded/grass_medium_01/main_Normal.jpg",
+          "ARM": "SourceArt/Forest/Downloaded/grass_medium_01/main_ARM.jpg",
+          "Alpha": "SourceArt/Forest/Downloaded/grass_medium_01/main_Alpha.png",
+          "Roughness": "SourceArt/Forest/Downloaded/grass_medium_01/main_Roughness.jpg",
+          "AO": "SourceArt/Forest/Downloaded/grass_medium_01/main_AO.jpg"
+        }
+      },
+      "fbx": "SourceArt/Forest/Downloaded/grass_medium_01/grass_medium_01.fbx",
+      "blend": "SourceArt/Forest/Downloaded/grass_medium_01/grass_medium_01.blend"
+    },
+    "boulder_01": {
+      "id": "boulder_01",
+      "source": "https://polyhaven.com/a/boulder_01",
+      "materials": {
+        "": {
+          "BaseColor": "SourceArt/Forest/Downloaded/boulder_01/main_BaseColor.jpg",
+          "Normal": "SourceArt/Forest/Downloaded/boulder_01/main_Normal.jpg",
+          "ARM": "SourceArt/Forest/Downloaded/boulder_01/main_ARM.jpg",
+          "Roughness": "SourceArt/Forest/Downloaded/boulder_01/main_Roughness.jpg",
+          "AO": "SourceArt/Forest/Downloaded/boulder_01/main_AO.jpg"
+        }
+      },
+      "fbx": "SourceArt/Forest/Downloaded/boulder_01/boulder_01.fbx",
+      "blend": "SourceArt/Forest/Downloaded/boulder_01/boulder_01.blend"
+    },
+    "dead_tree_trunk": {
+      "id": "dead_tree_trunk",
+      "source": "https://polyhaven.com/a/dead_tree_trunk",
+      "materials": {
+        "": {
+          "BaseColor": "SourceArt/Forest/Downloaded/dead_tree_trunk/main_BaseColor.jpg",
+          "Normal": "SourceArt/Forest/Downloaded/dead_tree_trunk/main_Normal.jpg",
+          "ARM": "SourceArt/Forest/Downloaded/dead_tree_trunk/main_ARM.jpg",
+          "Roughness": "SourceArt/Forest/Downloaded/dead_tree_trunk/main_Roughness.jpg",
+          "AO": "SourceArt/Forest/Downloaded/dead_tree_trunk/main_AO.jpg"
+        }
+      },
+      "fbx": "SourceArt/Forest/Downloaded/dead_tree_trunk/dead_tree_trunk.fbx",
+      "blend": "SourceArt/Forest/Downloaded/dead_tree_trunk/dead_tree_trunk.blend"
+    }
+  },
+  "surfaces": {
+    "forest_ground_04": {
+      "id": "forest_ground_04",
+      "source": "https://polyhaven.com/a/forest_ground_04",
+      "materials": {
+        "": {
+          "BaseColor": "SourceArt/Forest/Downloaded/forest_ground_04/main_BaseColor.jpg",
+          "Normal": "SourceArt/Forest/Downloaded/forest_ground_04/main_Normal.jpg",
+          "ARM": "SourceArt/Forest/Downloaded/forest_ground_04/main_ARM.jpg",
+          "Roughness": "SourceArt/Forest/Downloaded/forest_ground_04/main_Roughness.jpg",
+          "AO": "SourceArt/Forest/Downloaded/forest_ground_04/main_AO.jpg"
+        }
+      }
+    },
+    "brown_mud_leaves_01": {
+      "id": "brown_mud_leaves_01",
+      "source": "https://polyhaven.com/a/brown_mud_leaves_01",
+      "materials": {
+        "": {
+          "BaseColor": "SourceArt/Forest/Downloaded/brown_mud_leaves_01/main_BaseColor.jpg",
+          "Normal": "SourceArt/Forest/Downloaded/brown_mud_leaves_01/main_Normal.jpg",
+          "ARM": "SourceArt/Forest/Downloaded/brown_mud_leaves_01/main_ARM.jpg",
+          "Roughness": "SourceArt/Forest/Downloaded/brown_mud_leaves_01/main_Roughness.jpg",
+          "AO": "SourceArt/Forest/Downloaded/brown_mud_leaves_01/main_AO.jpg"
+        }
+      }
+    },
+    "gravel_floor": {
+      "id": "gravel_floor",
+      "source": "https://polyhaven.com/a/gravel_floor",
+      "materials": {
+        "": {
+          "BaseColor": "SourceArt/Forest/Downloaded/gravel_floor/main_BaseColor.jpg",
+          "Normal": "SourceArt/Forest/Downloaded/gravel_floor/main_Normal.jpg",
+          "ARM": "SourceArt/Forest/Downloaded/gravel_floor/main_ARM.jpg",
+          "Roughness": "SourceArt/Forest/Downloaded/gravel_floor/main_Roughness.jpg",
+          "AO": "SourceArt/Forest/Downloaded/gravel_floor/main_AO.jpg"
+        }
+      }
+    },
+    "concrete_wall_005": {
+      "id": "concrete_wall_005",
+      "source": "https://polyhaven.com/a/concrete_wall_005",
+      "materials": {
+        "": {
+          "BaseColor": "SourceArt/Forest/Downloaded/concrete_wall_005/main_BaseColor.jpg",
+          "Normal": "SourceArt/Forest/Downloaded/concrete_wall_005/main_Normal.jpg",
+          "ARM": "SourceArt/Forest/Downloaded/concrete_wall_005/main_ARM.jpg",
+          "Roughness": "SourceArt/Forest/Downloaded/concrete_wall_005/main_Roughness.jpg",
+          "AO": "SourceArt/Forest/Downloaded/concrete_wall_005/main_AO.jpg"
+        }
+      }
+    },
+    "peeling_painted_wall": {
+      "id": "peeling_painted_wall",
+      "source": "https://polyhaven.com/a/peeling_painted_wall",
+      "materials": {
+        "": {
+          "BaseColor": "SourceArt/Forest/Downloaded/peeling_painted_wall/main_BaseColor.jpg",
+          "Normal": "SourceArt/Forest/Downloaded/peeling_painted_wall/main_Normal.jpg",
+          "ARM": "SourceArt/Forest/Downloaded/peeling_painted_wall/main_ARM.jpg",
+          "Roughness": "SourceArt/Forest/Downloaded/peeling_painted_wall/main_Roughness.jpg",
+          "AO": "SourceArt/Forest/Downloaded/peeling_painted_wall/main_AO.jpg"
+        }
+      }
+    },
+    "aerial_grass_rock": {
+      "id": "aerial_grass_rock",
+      "source": "https://polyhaven.com/a/aerial_grass_rock",
+      "materials": {
+        "": {
+          "BaseColor": "SourceArt/Forest/Downloaded/aerial_grass_rock/main_BaseColor.jpg",
+          "Normal": "SourceArt/Forest/Downloaded/aerial_grass_rock/main_Normal.jpg",
+          "ARM": "SourceArt/Forest/Downloaded/aerial_grass_rock/main_ARM.jpg",
+          "Roughness": "SourceArt/Forest/Downloaded/aerial_grass_rock/main_Roughness.jpg",
+          "AO": "SourceArt/Forest/Downloaded/aerial_grass_rock/main_AO.jpg"
+        }
+      }
+    }
+  }
+}

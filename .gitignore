@@ -38,3 +38,6 @@ Thumbs.db
 /SourceArt/PolyHaven/fetched.json
 /SourceArt/PolyHaven/catalog_*.json
 *.part
+
+# Reproducible high-poly downloads; optimized forest meshes and UE assets are tracked.
+/SourceArt/Forest/Downloaded/

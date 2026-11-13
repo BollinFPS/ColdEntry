@@ -42,7 +42,7 @@ void ACEGameMode::StartPlay()
 {
 	Super::StartPlay();
 	const UCETuning* T = UCETuning::Get();
-	bShotTour = FParse::Param(FCommandLine::Get(), TEXT("ceshots"));
+	bShotTour = FParse::Param(FCommandLine::Get(), TEXT("ceshots")) || FParse::Param(FCommandLine::Get(), TEXT("ceenvironmentshots"));
 	bAutoPlay = bShotTour || T->bAutoPlay || FParse::Param(FCommandLine::Get(), TEXT("ceauto"));
 	bSquadAttacking = T->bPlayerStartsAttacking;
 
@@ -51,7 +51,8 @@ void ACEGameMode::StartPlay()
 	Level = GetWorld()->SpawnActor<ACELevelBuilder>(FVector::ZeroVector, FRotator::ZeroRotator, P);
 	Level->Build();
 
-	Overview = GetWorld()->SpawnActor<ACameraActor>(FVector(-2200, -1600, 1500), FRotator(-24, 38, 0), P);
+	Overview = GetWorld()->SpawnActor<ACameraActor>(FVector(4800, -2550, 185), FRotator(5, 126, 0), P);
+	Overview->GetCameraComponent()->SetFieldOfView(68.f);
 
 	for (int32 i = 0; i < 9; ++i)
 	{
@@ -376,6 +377,8 @@ void ACEGameMode::TickShotTour()
 		Add(TEXT("03b_anim_hit"), ECEShotKind::Attacker);
 		Add(TEXT("03c_anim_throw"), ECEShotKind::Attacker);
 		Add(TEXT("04_exterior_wide"), ECEShotKind::Fixed, FVector(-22.f, -16.f, 15.f), FRotator(-24.f, 38.f, 0.f));
+		Add(TEXT("04a_forest_approach"), ECEShotKind::Fixed, FVector(-24.5f, -24.f, 3.6f), FRotator(1.f, 37.f, 0.f));
+		Add(TEXT("04b_forest_perimeter"), ECEShotKind::Fixed, FVector(-24.f, 3.f, 1.7f), FRotator(4.f, 160.f, 0.f));
 		Add(TEXT("05_west_yard"), ECEShotKind::Fixed, FVector(-20.f, 16.f, 1.7f), FRotator(2.f, -8.f, 0.f));
 		Add(TEXT("06_loading_bay"), ECEShotKind::Fixed, FVector(1.5f, 2.2f, 1.7f), FRotator(-2.f, 62.f, 0.f));
 		Add(TEXT("07_corridor"), ECEShotKind::Fixed, FVector(15.5f, 1.f, 1.7f), FRotator(0.f, 90.f, 0.f));
@@ -390,6 +393,18 @@ void ACEGameMode::TickShotTour()
 		Add(TEXT("15_attacker_moving_c"), ECEShotKind::Attacker);
 		Add(TEXT("16_defender_moving"), ECEShotKind::Defender);
 		Add(TEXT("17_death"), ECEShotKind::Death);
+		if(FParse::Param(FCommandLine::Get(),TEXT("ceenvironmentshots")))
+		{
+			GShots.Reset();
+			ShotCam->GetCameraComponent()->SetFieldOfView(68.f);
+			Add(TEXT("forest_01_reference_approach"),ECEShotKind::Fixed,FVector(48,-25.5f,1.85f),FRotator(5,126,0));
+			Add(TEXT("forest_02_ground_entry"),ECEShotKind::Fixed,FVector(31,-12,1.7f),FRotator(-3,104,0));
+			Add(TEXT("forest_03_woodland"),ECEShotKind::Fixed,FVector(-25,0,1.7f),FRotator(3,166,0));
+			Add(TEXT("forest_04_west_apron"),ECEShotKind::Fixed,FVector(-18,16,1.7f),FRotator(2,-8,0));
+			Add(TEXT("forest_05_overview"),ECEShotKind::Fixed,FVector(68,-38,30),FRotator(-24,132,0));
+			Add(TEXT("forest_06_comms_props"),ECEShotKind::Fixed,FVector(30.3f,17.3f,1.7f),FRotator(-6,218,0));
+			Add(TEXT("forest_07_workshop_props"),ECEShotKind::Fixed,FVector(37,9,1.7f),FRotator(-4,212,0));
+		}
 		if (FParse::Param(FCommandLine::Get(), TEXT("celineup")) && Level)
 		{
 			// the camera looks north, so stepping west keeps the list order left to right

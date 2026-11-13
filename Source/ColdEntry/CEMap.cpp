@@ -9,6 +9,7 @@
 #include "Components/SkyLightComponent.h"
 #include "Components/SkyAtmosphereComponent.h"
 #include "Components/PostProcessComponent.h"
+#include "Components/BoxComponent.h"
 #include "Components/ExponentialHeightFogComponent.h"
 #include "Materials/MaterialInterface.h"
 #include "Engine/World.h"
@@ -38,6 +39,8 @@ void ACELevelBuilder::Build()
 	BuildLighting();
 	BuildGameplayData();
 	BuildNav();
+	BuildEnvironment();
+	BuildFacadeDetail();
 	UE_LOG(LogColdEntry, Log, TEXT("Kessler Annex built: %d entities, %d nav nodes, %d edges, %d lights"),
 		Entities.Num(), Nodes.Num(), Edges.Num(), Lights.Num());
 }
@@ -94,35 +97,39 @@ void ACELevelBuilder::Box(float X0, float Y0, float Z0, float X1, float Y1, floa
 // Wall at constant X running along Y.
 void ACELevelBuilder::WallX(float X, float Y0, float Y1, float Z0, float Z1, float T, ECESurf S, TArray<FCEOpening> Ops)
 {
-	Ops.Sort([](const FCEOpening& L, const FCEOpening& R) { return L.A < R.A; });
-	float Cur = Y0;
 	const float H = T * 0.5f;
-	for (const FCEOpening& O : Ops)
+	TArray<float> Cuts={Y0,Y1};
+	for(const auto& O:Ops) { Cuts.AddUnique(O.A);Cuts.AddUnique(O.B); }
+	Cuts.Sort();
+	for(int32 i=0;i+1<Cuts.Num();++i)
 	{
-		Box(X - H, Cur, Z0, X + H, O.A, Z1, S);
-		if (O.Bot > Z0 + 0.01f) Box(X - H, O.A, Z0, X + H, O.B, O.Bot, S);
-		if (O.Top < Z1 - 0.01f) Box(X - H, O.A, O.Top, X + H, O.B, Z1, S);
-		Opening(true, X, T, O);
-		Cur = O.B;
+		const float Mid=(Cuts[i]+Cuts[i+1])*.5f;TArray<FCEOpening> Column;
+		for(const auto& O:Ops) if(Mid>O.A&&Mid<O.B) Column.Add(O);
+		Column.Sort([](const auto& L,const auto& R){return L.Bot<R.Bot;});
+		float Z=Z0;
+		for(const auto& O:Column) { if(O.Bot>Z) Box(X-H,Cuts[i],Z,X+H,Cuts[i+1],O.Bot,S);Z=FMath::Max(Z,O.Top); }
+		if(Z<Z1) Box(X-H,Cuts[i],Z,X+H,Cuts[i+1],Z1,S);
 	}
-	Box(X - H, Cur, Z0, X + H, Y1, Z1, S);
+	for(const auto& O:Ops) Opening(true,X,T,O);
 }
 
 // Wall at constant Y running along X.
 void ACELevelBuilder::WallY(float Y, float X0, float X1, float Z0, float Z1, float T, ECESurf S, TArray<FCEOpening> Ops)
 {
-	Ops.Sort([](const FCEOpening& L, const FCEOpening& R) { return L.A < R.A; });
-	float Cur = X0;
 	const float H = T * 0.5f;
-	for (const FCEOpening& O : Ops)
+	TArray<float> Cuts={X0,X1};
+	for(const auto& O:Ops) { Cuts.AddUnique(O.A);Cuts.AddUnique(O.B); }
+	Cuts.Sort();
+	for(int32 i=0;i+1<Cuts.Num();++i)
 	{
-		Box(Cur, Y - H, Z0, O.A, Y + H, Z1, S);
-		if (O.Bot > Z0 + 0.01f) Box(O.A, Y - H, Z0, O.B, Y + H, O.Bot, S);
-		if (O.Top < Z1 - 0.01f) Box(O.A, Y - H, O.Top, O.B, Y + H, Z1, S);
-		Opening(false, Y, T, O);
-		Cur = O.B;
+		const float Mid=(Cuts[i]+Cuts[i+1])*.5f;TArray<FCEOpening> Column;
+		for(const auto& O:Ops) if(Mid>O.A&&Mid<O.B) Column.Add(O);
+		Column.Sort([](const auto& L,const auto& R){return L.Bot<R.Bot;});
+		float Z=Z0;
+		for(const auto& O:Column) { if(O.Bot>Z) Box(Cuts[i],Y-H,Z,Cuts[i+1],Y+H,O.Bot,S);Z=FMath::Max(Z,O.Top); }
+		if(Z<Z1) Box(Cuts[i],Y-H,Z,Cuts[i+1],Y+H,Z1,S);
 	}
-	Box(Cur, Y - H, Z0, X1, Y + H, Z1, S);
+	for(const auto& O:Ops) Opening(false,Y,T,O);
 }
 
 void ACELevelBuilder::Opening(bool bAlongY, float Fixed, float T, const FCEOpening& O)
@@ -179,6 +186,15 @@ void ACELevelBuilder::Opening(bool bAlongY, float Fixed, float T, const FCEOpeni
 		ACEBreakable* B = W->SpawnActor<ACEBreakable>(FVector::ZeroVector, FRotator::ZeroRotator, P);
 		B->Setup(ECEEntityKind::Glass, Centre, Half);
 		Entities.Add(B);
+		// Narrow industrial steel mullions give the glazing the scale of real factory windows.
+		for (float A = O.A + 0.85f; A < O.B - 0.15f; A += 0.85f)
+		{
+			if (bAlongY) Box(Fixed - H, A - 0.018f, O.Bot, Fixed + H, A + 0.018f, O.Top, ECESurf::Gunmetal, ECECol::None);
+			else Box(A - 0.018f, Fixed - H, O.Bot, A + 0.018f, Fixed + H, O.Top, ECESurf::Gunmetal, ECECol::None);
+		}
+		const float BarZ = FMath::Lerp(O.Bot, O.Top, 0.58f);
+		if (bAlongY) Box(Fixed - H, O.A, BarZ - 0.018f, Fixed + H, O.B, BarZ + 0.018f, ECESurf::Gunmetal, ECECol::None);
+		else Box(O.A, Fixed - H, BarZ - 0.018f, O.B, Fixed + H, BarZ + 0.018f, ECESurf::Gunmetal, ECECol::None);
 		break;
 	}
 	case ECEOpen::Barricade:
@@ -247,6 +263,9 @@ void ACELevelBuilder::Light(float X, float Y, float Z, float Candela, float Radi
 		const float HL = FMath::Max(0.15f, LengthM * 0.5f);
 		Box(X - HL, Y - 0.09f, Z + 0.06f, X + HL, Y + 0.09f, Z + 0.1f, ECESurf::Emissive, ECECol::None);
 		Box(X - HL - 0.03f, Y - 0.12f, Z + 0.1f, X + HL + 0.03f, Y + 0.12f, Z + 0.16f, ECESurf::Paint, ECECol::None);
+		const float CeilingZ=Z>4.f?6.7f:3.15f;
+		if(CeilingZ>Z+.16f) for(float End:{X-HL*.8f,X+HL*.8f})
+			Box(End-.007f,Y-.007f,Z+.16f,End+.007f,Y+.007f,CeilingZ,ECESurf::Gunmetal,ECECol::None);
 	}
 }
 
@@ -432,7 +451,7 @@ void ACELevelBuilder::BuildGeometry()
 	const ECESurf Ext = ECESurf::Concrete, Blk = ECESurf::Block, Dry = ECESurf::Drywall;
 
 	// ---- ground, slabs, roof ----
-	Box(-420, -420, -0.4f, 460, 450, -0.02f, ECESurf::Asphalt);   // runs out to the haze
+	Box(-30.2f, -28.2f, -0.4f, 70.2f, 56.2f, -0.02f, ECESurf::Asphalt); // wet compound; wooded terrain beyond
 	Box(-8, -2, -0.3f, 0, 30, 0.0f, ECESurf::Concrete);           // west loading apron
 	Box(0, 0, -0.3f, 40, 28, 0.0f, ECESurf::Floor);                 // ground floor slab
 	Box(14, 0, C1, 32.5f, 28, F2, ECESurf::Floor);                  // upper slab (stair hole at 32.5-37.2 x 23.9-26.1)
@@ -440,7 +459,10 @@ void ACELevelBuilder::BuildGeometry()
 	Box(32.5f, 0, C1, 37.2f, 23.9f, F2, ECESurf::Floor);
 	Box(32.5f, 26.1f, C1, 37.2f, 28, F2, ECESurf::Floor);
 	Box(0, 0, C2, 40, 28, 7.0f, ECESurf::Concrete);                 // roof
-	Box(-0.2f, -0.2f, 7.0f, 40.2f, 28.2f, 7.4f, ECESurf::Concrete); // parapet cap
+	Box(-0.2f, -0.2f, 7.0f, 40.2f, 0.15f, 7.35f, ECESurf::Concrete);
+	Box(-0.2f, 27.85f, 7.0f, 40.2f, 28.2f, 7.35f, ECESurf::Concrete);
+	Box(-0.2f, 0.15f, 7.0f, 0.15f, 27.85f, 7.35f, ECESurf::Concrete);
+	Box(39.85f, 0.15f, 7.0f, 40.2f, 27.85f, 7.35f, ECESurf::Concrete);
 
 	// drop ceilings (visual only)
 	auto Ceil = [this](float X0, float Y0, float X1, float Y1, float Z) { Box(X0, Y0, Z - 0.05f, X1, Y1, Z, ECESurf::Ceiling, ECECol::None); };
@@ -451,8 +473,10 @@ void ACELevelBuilder::BuildGeometry()
 	// ---- exterior walls ----
 	WallY(0, -0.15f, 40.15f, 0, 7.0f, 0.3f, Ext, {
 		O{3, 4.1f, 0, DoorH, ECEOpen::Door},            // bay south personnel door
-		O{19, 23, 2.0f, 2.9f, ECEOpen::Glass},          // workshop clerestory
-		O{24.5f, 27.5f, 4.4f, 5.6f, ECEOpen::Glass},    // records window
+		O{17.8f, 23.7f, 1.15f, 2.85f, ECEOpen::Glass}, // workshop window bank
+		O{3.0f, 12.7f, 4.4f, 6.3f, ECEOpen::Glass},   // full-height industrial upper glazing
+		O{17.8f, 27.7f, 4.4f, 6.3f, ECEOpen::Glass},
+		O{31.7f, 38.2f, 4.4f, 6.3f, ECEOpen::Glass},
 		O{28, 29.1f, 0, DoorH, ECEOpen::Door} });       // workshop south door
 	WallY(28, -0.15f, 40.15f, 0, 7.0f, 0.3f, Ext, {
 		O{15, 16.1f, 0, DoorH, ECEOpen::Door},          // corridor north door
@@ -461,10 +485,12 @@ void ACELevelBuilder::BuildGeometry()
 		O{29, 30.1f, F2, F2 + DoorH, ECEOpen::Door} }); // fire escape door
 	WallX(0, 0.15f, 27.85f, 0, 7.0f, 0.3f, Ext, {
 		O{5, 9, 0, 2.4f, ECEOpen::Open},                // loading door 1 (shutter half open)
+		O{10.3f, 17.6f, 4.6f, 6.3f, ECEOpen::Glass},   // high factory glazing
 		O{19, 23, 0, 2.4f, ECEOpen::Open} });           // loading door 2
 	WallX(40, 0.15f, 27.85f, 0, 7.0f, 0.3f, Ext, {
-		O{3, 5, 4.4f, 5.6f, ECEOpen::Glass},            // plant room window
-		O{12, 13.1f, 0, DoorH, ECEOpen::Door} });       // east door
+		O{1.8f, 10.5f, 4.2f, 6.3f, ECEOpen::Glass},    // plant room glazing
+		O{12, 13.1f, 0, DoorH, ECEOpen::Door},          // east door
+		O{16.5f, 25.8f, 4.2f, 6.3f, ECEOpen::Glass} });
 	// shutters (partly rolled down)
 	Box(0.16f, 5, 2.4f, 0.3f, 9, 3.3f, ECESurf::Metal, ECECol::None);
 	Box(0.16f, 19, 2.4f, 0.3f, 23, 3.3f, ECESurf::Metal, ECECol::None);
@@ -611,31 +637,56 @@ void ACELevelBuilder::BuildGeometry()
 	Box(33.9f, 29.8f, 0, 34.05f, 29.95f, 3.4f, ECESurf::Metal);
 
 	// ---- exterior cover & dressing ----
-	Box(-9, -3, 0, -6.5f, 3, 3.0f, ECESurf::Paint);                     // box truck
-	Box(-9, 3, 0, -6.6f, 4.8f, 2.4f, ECESurf::Paint);
+	const float CargoTop=Dress(TEXT("crate"),-9,-3,0,-6.5f,3,1.35f,ECESurf::Crate,90,1.8f);
+	Dress(TEXT("crate"),-8.9f,-2.7f,CargoTop,-6.6f,2.7f,CargoTop+1.25f,ECESurf::Crate,90,1.8f);
 	Box(-15, 8, 0, -12.6f, 14, 2.6f, ECESurf::Container);              // containers
 	Box(-11, 20, 0, -5, 22.4f, 2.6f, ECESurf::ContainerB);
 	Box(18, 36, 0, 24, 38.4f, 2.6f, ECESurf::Container);
 	Box(30, 36, 0, 32.4f, 42, 2.6f, ECESurf::ContainerB);
 	Dress(TEXT("barrier"), 20, -8, 0, 24, -7.4f, 0.85f, ECESurf::Concrete, 90);        // road barriers
 	Dress(TEXT("barrier_b"), 31, -10, 0, 35, -9.4f, 0.85f, ECESurf::Concrete, 90);
-	Box(10, -4, 0, 12, -2.8f, 1.4f, ECESurf::Metal);                   // dumpster
-	Box(44, 9, 0, 46.5f, 11.5f, 2.0f, ECESurf::Paint);                 // generator
+	Dress(TEXT("trashcan"),10,-4,0,12,-2.8f,1.4f,ECESurf::Metal,90,1.5f);
+	Dress(TEXT("utilbox_green"),44,9,0,46.5f,11.5f,2.f,ECESurf::Metal,0,1.5f);
 	Dress(TEXT("barrier"), 44, 16, 0, 48, 16.6f, 0.85f, ECESurf::Concrete, 90);
 	Box(5, 31, 0, 7.4f, 37, 2.6f, ECESurf::Container);
-	// perimeter wall (visual) + invisible boundary
-	Box(-30.2f, -28.2f, 0, -29.9f, 56.2f, 2.8f, ECESurf::Concrete, ECECol::None);
-	Box(70, -28.2f, 0, 70.3f, 56.2f, 2.8f, ECESurf::Concrete, ECECol::None);
-	Box(-30.2f, -28.2f, 0, 70.3f, -27.9f, 2.8f, ECESurf::Concrete, ECECol::None);
-	Box(-30.2f, 56, 0, 70.3f, 56.3f, 2.8f, ECESurf::Concrete, ECECol::None);
+	// Corrugated service containers frame the warm entrance, as in the art reference.
+	auto Container=[&](float X0,float Y0,float X1,float Y1,ECESurf Skin)
+	{
+		Box(X0,Y0,-.02f,X1,Y1,2.6f,Skin);
+		for(float X:{X0,X1}) for(float Y:{Y0,Y1})
+			Box(X-.055f,Y-.055f,-.02f,X+.055f,Y+.055f,2.65f,ECESurf::Gunmetal,ECECol::None);
+		for(float Z:{.04f,2.57f})
+		{
+			Box(X0,Y0-.04f,Z,X1,Y0+.04f,Z+.08f,ECESurf::Metal,ECECol::None);
+			Box(X0,Y1-.04f,Z,X1,Y1+.04f,Z+.08f,ECESurf::Metal,ECECol::None);
+			Box(X0-.04f,Y0,Z,X0+.04f,Y1,Z+.08f,ECESurf::Metal,ECECol::None);
+			Box(X1-.04f,Y0,Z,X1+.04f,Y1,Z+.08f,ECESurf::Metal,ECECol::None);
+		}
+		for(float X=X0+.2f;X<X1-.1f;X+=.24f) Box(X,Y0-.026f,.15f,X+.052f,Y0,2.52f,Skin,ECECol::None);
+		for(float Y=Y0+.2f;Y<Y1-.1f;Y+=.24f) Box(X1,Y,.15f,X1+.026f,Y+.052f,2.52f,Skin,ECECol::None);
+		const float Mid=(X0+X1)*.5f;
+		Box(Mid-.018f,Y0-.05f,.1f,Mid+.018f,Y0-.035f,2.55f,ECESurf::Gunmetal,ECECol::None);
+		for(float X:{FMath::Lerp(X0,X1,.27f),FMath::Lerp(X0,X1,.73f)})
+			Box(X-.018f,Y0-.09f,.18f,X+.018f,Y0-.055f,2.48f,ECESurf::Steel,ECECol::None);
+	};
+	Container(20,-4,26,-1.6f,ECESurf::Container);
+	Container(34,-7,36.4f,-1,ECESurf::ContainerB);
+	// Security fence and forest replace the solid perimeter walls. Keep the playable boundary.
 	Box(-30.5f, -28.5f, 0, -29.9f, 56.5f, 8, ECESurf::Concrete, ECECol::HiddenPawn);
 	Box(70, -28.5f, 0, 70.6f, 56.5f, 8, ECESurf::Concrete, ECECol::HiddenPawn);
 	Box(-30.5f, -28.5f, 0, 70.6f, -27.9f, 8, ECESurf::Concrete, ECECol::HiddenPawn);
 	Box(-30.5f, 56, 0, 70.6f, 56.5f, 8, ECESurf::Concrete, ECECol::HiddenPawn);
-	// floodlight poles
-	for (const FVector2D& P : { FVector2D(-12, -12), FVector2D(52, 30), FVector2D(14, 44) })
+	// Complete fixtures and concrete bases replace the former bare poles.
+	for (const FVector2D& P : { FVector2D(-26, -19), FVector2D(52, 30), FVector2D(14, 44) })
 	{
-		Box(P.X - 0.1f, P.Y - 0.1f, 0, P.X + 0.1f, P.Y + 0.1f, 8, ECESurf::Gunmetal);
+		Box(P.X-.3f,P.Y-.3f,-.02f,P.X+.3f,P.Y+.3f,.2f,ECESurf::Concrete);
+		Box(P.X-.065f,P.Y-.065f,.2f,P.X+.065f,P.Y+.065f,8.f,ECESurf::Gunmetal);
+		Box(P.X-.65f,P.Y-.06f,7.7f,P.X+.65f,P.Y+.06f,7.82f,ECESurf::Steel,ECECol::None);
+		for(float Offset:{-.43f,.43f})
+		{
+			Box(P.X+Offset-.22f,P.Y-.16f,7.73f,P.X+Offset+.22f,P.Y+.16f,8.06f,ECESurf::Gunmetal,ECECol::None);
+			Box(P.X+Offset-.18f,P.Y-.17f,7.77f,P.X+Offset+.18f,P.Y-.16f,8.02f,ECESurf::Emissive,ECECol::None);
+		}
 	}
 }
 
@@ -668,17 +719,21 @@ void ACELevelBuilder::BuildLighting()
 	UExponentialHeightFogComponent* Fog = NewObject<UExponentialHeightFogComponent>(this);
 	Fog->SetupAttachment(RootComponent);
 	Fog->FogDensity = UCETuning::Get()->FogDensity;
-	Fog->FogHeightFalloff = 0.12f;
-	Fog->FogInscatteringLuminance = FLinearColor(0.34f, 0.37f, 0.4f);
-	Fog->StartDistance = 1200.f;
+	Fog->FogHeightFalloff = 0.16f;
+	Fog->FogInscatteringLuminance = FLinearColor(0.54f, 0.61f, 0.65f);
+	Fog->StartDistance = 1800.f;
+	Fog->bEnableVolumetricFog = true;
+	Fog->VolumetricFogScatteringDistribution = 0.45f;
+	Fog->VolumetricFogDistance = 24000.f;
 	Fog->RegisterComponent(); AddInstanceComponent(Fog);
 
 	UDirectionalLightComponent* Sun = NewObject<UDirectionalLightComponent>(this);
 	Sun->SetupAttachment(RootComponent);
 	Sun->SetMobility(EComponentMobility::Movable);
 	Sun->Intensity = UCETuning::Get()->SunLux;   // overcast late afternoon
-	Sun->bUseTemperature = true; Sun->Temperature = 5200.f;
-	Sun->SetWorldRotation(FRotator(-24.f, 132.f, 0.f));
+	Sun->bUseTemperature = true; Sun->Temperature = 6100.f;
+	Sun->LightSourceAngle = 4.0f;
+	Sun->SetWorldRotation(FRotator(-32.f, 128.f, 0.f));
 	Sun->RegisterComponent(); AddInstanceComponent(Sun);
 	Sun->SetAtmosphereSunLight(!bDome);
 
@@ -710,15 +765,46 @@ void ACELevelBuilder::BuildLighting()
 	S.bOverride_AutoExposureSpeedDown = true;   S.AutoExposureSpeedDown = 2.0f;
 	S.bOverride_AutoExposureBias = true;        S.AutoExposureBias = UCETuning::Get()->ExposureBias;
 	S.bOverride_BloomIntensity = true;          S.BloomIntensity = 0.3f;
-	S.bOverride_VignetteIntensity = true;       S.VignetteIntensity = 0.32f;
+	S.bOverride_VignetteIntensity = true;       S.VignetteIntensity = 0.12f;
 	S.bOverride_MotionBlurAmount = true;        S.MotionBlurAmount = 0.f;
 	S.bOverride_LensFlareIntensity = true;      S.LensFlareIntensity = 0.f;
 	S.bOverride_SceneFringeIntensity = true;    S.SceneFringeIntensity = 0.f;
-	S.bOverride_FilmGrainIntensity = true;      S.FilmGrainIntensity = 0.06f;
-	S.bOverride_ColorSaturation = true;         S.ColorSaturation = FVector4(0.86f, 0.88f, 0.9f, 1.f);
+	S.bOverride_FilmGrainIntensity = true;      S.FilmGrainIntensity = 0.f;
+	S.bOverride_ColorSaturation = true;         S.ColorSaturation = FVector4(0.94f, 0.97f, 1.f, 1.f);
 	S.bOverride_ColorContrast = true;           S.ColorContrast = FVector4(1.04f, 1.04f, 1.04f, 1.f);
 	S.bOverride_WhiteTemp = true;               S.WhiteTemp = UCETuning::Get()->WhiteBalance;
 	PP->RegisterComponent(); AddInstanceComponent(PP);
+
+	// Let eyes adapt inside the annex while retaining the exterior's restrained
+	// exposure. The bounds blend at doorways and do not affect forest cameras.
+	auto* InteriorBounds = NewObject<UBoxComponent>(this);
+	InteriorBounds->SetupAttachment(RootComponent);
+	InteriorBounds->SetMobility(EComponentMobility::Static);
+	InteriorBounds->SetRelativeLocation(M(20.f,14.f,3.45f));
+	InteriorBounds->SetBoxExtent(M(19.8f,13.8f,3.45f));
+	// UE 5.8's post-process distance query uses the parent's physics shape.
+	// Keep that query shape alive while ignoring every gameplay channel.
+	InteriorBounds->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	InteriorBounds->SetCollisionResponseToAllChannels(ECR_Ignore);
+	InteriorBounds->SetGenerateOverlapEvents(false);
+	InteriorBounds->SetCanEverAffectNavigation(false);
+	InteriorBounds->SetHiddenInGame(true);
+	InteriorBounds->RegisterComponent(); AddInstanceComponent(InteriorBounds);
+	auto* InteriorPP = NewObject<UPostProcessComponent>(this);
+	InteriorPP->SetupAttachment(InteriorBounds);
+	InteriorPP->bUnbound = false;
+	InteriorPP->Priority = 10.f;
+	InteriorPP->BlendRadius = 125.f;
+	InteriorPP->BlendWeight = 1.f;
+	InteriorPP->Settings.bOverride_AutoExposureMinBrightness = true;
+	InteriorPP->Settings.AutoExposureMinBrightness = UCETuning::Get()->InteriorExposureMinEV;
+	InteriorPP->Settings.bOverride_AutoExposureMaxBrightness = true;
+	InteriorPP->Settings.AutoExposureMaxBrightness = UCETuning::Get()->InteriorExposureMaxEV;
+	InteriorPP->Settings.bOverride_AutoExposureBias = true;
+	InteriorPP->Settings.AutoExposureBias = UCETuning::Get()->InteriorExposureBias;
+	InteriorPP->RegisterComponent(); AddInstanceComponent(InteriorPP);
+	UE_LOG(LogColdEntry,Log,TEXT("Interior exposure volume: inside=%d outside=%d"),
+		InteriorPP->EncompassesPoint(M(37,9,1.7f),0,nullptr),InteriorPP->EncompassesPoint(M(48,-25.5f,1.85f),0,nullptr));
 
 	// ---- interior practical lights (values are in candela; exposure adapts between in/out) ----
 	const float Fl = 5200.f;   // cool fluorescent
@@ -748,12 +834,12 @@ void ACELevelBuilder::BuildLighting()
 	Light(27.5f, 18, 6.3f, 2.5f, 7.f, Wm, 1.2f, true); Light(27.5f, 24.5f, 6.3f, 2.5f, 7.f, Wm, 1.2f, true);
 	Light(34, 9, 6.4f, 2.5f, 9.f, Fl, 1.2f, true); Light(36, 15, 6.4f, 2.f, 8.f, Fl, 1.2f, true);
 	// exterior floodlights (sodium) & door lamps
-	Light(-12, -12, 7.7f, 25.f, 30.f, 2200.f, 0.f, false);
+	Light(-26, -19, 7.7f, 25.f, 30.f, 3800.f, 0.f, false);
 	Light(52, 30, 7.7f, 25.f, 30.f, 2200.f, 0.f, false);
 	Light(14, 44, 7.7f, 25.f, 30.f, 2200.f, 0.f, false);
 	Light(-0.6f, 7, 3.2f, 4.f, 9.f, 2600.f, 0.f, false);
 	Light(-0.6f, 21, 3.2f, 4.f, 9.f, 2600.f, 0.f, false);
-	Light(28.5f, -0.6f, 2.6f, 3.f, 8.f, 2600.f, 0.f, false);
+	Light(28.5f, -0.6f, 2.35f, 32.f, 8.f, 2900.f, 0.f, false);
 	Light(40.6f, 12.5f, 2.6f, 3.f, 8.f, 2600.f, 0.f, false);
 }
 

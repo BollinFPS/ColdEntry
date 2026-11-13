@@ -133,6 +133,8 @@ private:
 	int32 Node(float X, float Y, float Z);
 	void Link(int32 A, int32 B);
 	void BuildGeometry();
+	void BuildEnvironment();
+	void BuildFacadeDetail();
 	void BuildLighting();
 	void BuildGameplayData();
 	void BuildNav();

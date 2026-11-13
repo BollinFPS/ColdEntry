@@ -1,0 +1,280 @@
+[
+  {
+    "name": "SM_Fir_1",
+    "asset": "fir_tree_01",
+    "fbx": "SourceArt/Forest/Prepared/SM_Fir_1.fbx",
+    "faces": 88980,
+    "dimensions_m": [
+      6.58326530456543,
+      6.467047691345215,
+      18.954601287841797
+    ],
+    "materials": [
+      "fir_tree_01_bark",
+      "fir_tree_01_trunk_a",
+      "fir_tree_01_twig",
+      "fir_tree_01_dead_branches"
+    ],
+    "uv_channels": 1
+  },
+  {
+    "name": "SM_Fir_2",
+    "asset": "fir_tree_01",
+    "fbx": "SourceArt/Forest/Prepared/SM_Fir_2.fbx",
+    "faces": 64508,
+    "dimensions_m": [
+      5.631947040557861,
+      6.084495544433594,
+      14.077526092529297
+    ],
+    "materials": [
+      "fir_tree_01_bark",
+      "fir_tree_01_trunk_b",
+      "fir_tree_01_twig",
+      "fir_tree_01_dead_branches"
+    ],
+    "uv_channels": 1
+  },
+  {
+    "name": "SM_Fir_3",
+    "asset": "fir_tree_01",
+    "fbx": "SourceArt/Forest/Prepared/SM_Fir_3.fbx",
+    "faces": 34656,
+    "dimensions_m": [
+      6.3490400314331055,
+      6.005417823791504,
+      14.545815467834473
+    ],
+    "materials": [
+      "fir_tree_01_bark",
+      "fir_tree_01_twig",
+      "fir_tree_01_dead_branches",
+      "fir_tree_01_trunk_c"
+    ],
+    "uv_channels": 1
+  },
+  {
+    "name": "SM_Sapling_1",
+    "asset": "pine_sapling_small",
+    "fbx": "SourceArt/Forest/Prepared/SM_Sapling_1.fbx",
+    "faces": 116569,
+    "dimensions_m": [
+      0.7876735925674438,
+      0.7274212837219238,
+      1.2989574670791626
+    ],
+    "materials": [
+      "pine_sapling_small_bark",
+      "pine_sapling_small_twig"
+    ],
+    "uv_channels": 1
+  },
+  {
+    "name": "SM_Sapling_2",
+    "asset": "pine_sapling_small",
+    "fbx": "SourceArt/Forest/Prepared/SM_Sapling_2.fbx",
+    "faces": 100003,
+    "dimensions_m": [
+      0.5287612676620483,
+      0.7303465604782104,
+      1.0456082820892334
+    ],
+    "materials": [
+      "pine_sapling_small_bark",
+      "pine_sapling_small_twig"
+    ],
+    "uv_channels": 1
+  },
+  {
+    "name": "SM_Sapling_3",
+    "asset": "pine_sapling_small",
+    "fbx": "SourceArt/Forest/Prepared/SM_Sapling_3.fbx",
+    "faces": 109173,
+    "dimensions_m": [
+      0.5127859115600586,
+      0.5799655318260193,
+      0.9613255858421326
+    ],
+    "materials": [
+      "pine_sapling_small_bark",
+      "pine_sapling_small_twig"
+    ],
+    "uv_channels": 1
+  },
+  {
+    "name": "SM_Fern_1",
+    "asset": "fern_02",
+    "fbx": "SourceArt/Forest/Prepared/SM_Fern_1.fbx",
+    "faces": 392,
+    "dimensions_m": [
+      0.5519406199455261,
+      0.6134210824966431,
+      0.28680354356765747
+    ],
+    "materials": [
+      "fern_02"
+    ],
+    "uv_channels": 1
+  },
+  {
+    "name": "SM_Fern_2",
+    "asset": "fern_02",
+    "fbx": "SourceArt/Forest/Prepared/SM_Fern_2.fbx",
+    "faces": 1192,
+    "dimensions_m": [
+      0.9897474050521851,
+      0.893689751625061,
+      0.427694708108902
+    ],
+    "materials": [
+      "fern_02"
+    ],
+    "uv_channels": 1
+  },
+  {
+    "name": "SM_Fern_3",
+    "asset": "fern_02",
+    "fbx": "SourceArt/Forest/Prepared/SM_Fern_3.fbx",
+    "faces": 1124,
+    "dimensions_m": [
+      0.8743258118629456,
+      0.7652256488800049,
+      0.3490203619003296
+    ],
+    "materials": [
+      "fern_02"
+    ],
+    "uv_channels": 1
+  },
+  {
+    "name": "SM_Grass_1",
+    "asset": "grass_medium_01",
+    "fbx": "SourceArt/Forest/Prepared/SM_Grass_1.fbx",
+    "faces": 1181,
+    "dimensions_m": [
+      0.3269655704498291,
+      0.3316594362258911,
+      0.14488962292671204
+    ],
+    "materials": [
+      "grass_medium_01"
+    ],
+    "uv_channels": 1
+  },
+  {
+    "name": "SM_Grass_2",
+    "asset": "grass_medium_01",
+    "fbx": "SourceArt/Forest/Prepared/SM_Grass_2.fbx",
+    "faces": 1282,
+    "dimensions_m": [
+      0.2910386323928833,
+      0.2910386323928833,
+      0.16506877541542053
+    ],
+    "materials": [
+      "grass_medium_01"
+    ],
+    "uv_channels": 1
+  },
+  {
+    "name": "SM_Grass_3",
+    "asset": "grass_medium_01",
+    "fbx": "SourceArt/Forest/Prepared/SM_Grass_3.fbx",
+    "faces": 1205,
+    "dimensions_m": [
+      0.289859414100647,
+      0.289859414100647,
+      0.14030054211616516
+    ],
+    "materials": [
+      "grass_medium_01"
+    ],
+    "uv_channels": 1
+  },
+  {
+    "name": "SM_Boulder_1",
+    "asset": "boulder_01",
+    "fbx": "SourceArt/Forest/Prepared/SM_Boulder_1.fbx",
+    "faces": 45000,
+    "dimensions_m": [
+      1.272133708000183,
+      1.8307338953018188,
+      1.0031592845916748
+    ],
+    "materials": [
+      "boulder_01"
+    ],
+    "uv_channels": 1
+  },
+  {
+    "name": "SM_Boulder_2",
+    "asset": "boulder_01",
+    "fbx": "SourceArt/Forest/Prepared/SM_Boulder_2.fbx",
+    "faces": 33060,
+    "dimensions_m": [
+      1.2724279165267944,
+      1.8304250240325928,
+      1.0031592845916748
+    ],
+    "materials": [
+      "boulder_01"
+    ],
+    "uv_channels": 1
+  },
+  {
+    "name": "SM_Boulder_3",
+    "asset": "boulder_01",
+    "fbx": "SourceArt/Forest/Prepared/SM_Boulder_3.fbx",
+    "faces": 16530,
+    "dimensions_m": [
+      1.2726831436157227,
+      1.827759027481079,
+      1.0035170316696167
+    ],
+    "materials": [
+      "boulder_01"
+    ],
+    "uv_channels": 1
+  },
+  {
+    "name": "SM_Deadwood_1",
+    "asset": "dead_tree_trunk",
+    "fbx": "SourceArt/Forest/Prepared/SM_Deadwood_1.fbx",
+    "faces": 45000,
+    "dimensions_m": [
+      3.0509591102600098,
+      0.27741843461990356,
+      0.2903774678707123
+    ],
+    "materials": [
+      "dead_tree_trunk"
+    ],
+    "uv_channels": 1
+  },
+  {
+    "name": "SM_ForestTerrain",
+    "asset": "generated",
+    "fbx": "SourceArt/Forest/Prepared/SM_ForestTerrain.fbx",
+    "faces": 14400,
+    "dimensions_m": [
+      480.0,
+      480.0,
+      6.293417930603027
+    ],
+    "materials": [],
+    "uv_channels": 0
+  },
+  {
+    "name": "SM_SecurityFence",
+    "asset": "generated",
+    "fbx": "SourceArt/Forest/Prepared/SM_SecurityFence.fbx",
+    "faces": 420,
+    "dimensions_m": [
+      4.006363868713379,
+      0.008999999612569809,
+      2.4063639640808105
+    ],
+    "materials": [],
+    "uv_channels": 0
+  }
+]

@@ -3,10 +3,23 @@
 Tactical 5v5 attack/defend FPS. Tarkov-style grounded presentation, Siege-style round flow.
 Single-player with bots in this build (see **Multiplayer plan**).
 
+## Latest update: forest and facility art
+
+The November 13 forest pass adds scanned conifers, grass, ferns and rocks around
+the facility, damp ground with reflective puddles, weathered concrete, factory
+windows, rooftop equipment and a warm entrance canopy. Vegetation follows the
+terrain; stacked props and suspended fixtures have corrected supports.
+
+See [the update folder](Updates/2026-11-13-Forest-Polish/README.md) for actual
+gameplay-renderer screenshots, the change list, verification notes, and the
+ColdEntry logo, cover and menu artwork. The reference artwork is a visual target;
+the current environment is an iterative art pass, not an exact recreation.
+
 ## Getting started from GitHub
 
 This repository contains the C++ project, configuration, imported Unreal assets in `Content/`,
-and the downloaded Poly Haven source assets in `SourceArt/`. Generated binaries, build files,
+and prepared Poly Haven source assets in `SourceArt/`. Raw forest downloads are reproducible
+with `Tools/fetch_forest.py` and excluded from Git. Generated binaries, build files,
 caches, logs, and local settings are excluded. This is an Unreal project, not a packaged game executable.
 
 Requirements: Windows, **Unreal Engine 5.8**, and Visual Studio with the **Game development with C++**
@@ -84,6 +97,7 @@ manifest no longer lists are removed.
 |---|---|
 | `CETuning` | **Every tuning value** — Project Settings ▸ Game ▸ Cold Entry Tuning (saved to `Config/DefaultGame.ini`) |
 | `CEMap` | Kessler Annex: walls with openings, stairs, lights, sky dome/haze/exposure, callout zones, nav graph, spawns, holds. `Dress()` swaps a graybox block for scanned meshes while keeping the block as hidden collision; `Prop`/`PropFacing`/`WallProp` place set dressing |
+| `CEMapEnvironment` | Forest terrain, instanced trees/understory, grounding, perimeter fencing, facade detail and roof fixtures |
 | `CECharacter` | Shared pawn for player & bots: movement, crouch/lean/ADS, weapons, recoil patterns, hitscan + penetration, hitboxes, actions, box-built fallback body and viewmodels |
 | `CECharacterRig` | Fallback character model: template mannequin driven by the template rifle/pistol animation blueprints, crouch/lean correction, first-person arm IK, team tints, ragdoll |
 | `CECharacterSwat` | The SWAT operator: imported clips sampled and blended in code (no animation blueprint), crouch/lean/aim pitch, first-person arm IK, team tints, death clip |
@@ -98,7 +112,7 @@ manifest no longer lists are removed.
 
 ## Verified vs. assumed
 
-Verified on this PC (UE 5.8, standalone `-game`, November 13, 2026):
+Verified before the forest update on this PC (UE 5.8, standalone `-game`, November 13, 2026):
 - Project compiles. The facility builds at runtime (32 entities, 135 nav nodes, 46 lights) with 15 scanned
   surfaces, the scanned sky and 27 scanned props loading; the template mannequin, animation blueprints
   and weapons load and animate on the characters.
@@ -111,19 +125,20 @@ Verified in an earlier session (Play-in-Editor), not re-tested since the art pas
 Not yet verified (needs a hands-on playtest): the feel of everything with the new art in place,
 first-person arm IK across all weapons and gadgets, ragdolls, breach-charge flow end to end, smoke
 occlusion of bots, flashbang blinding, drone driving, alarm triggers, audio balance, mouse sensitivity.
-Dressing never changes collision (the old blocks are still there, hidden), but small set dressing
+Dressed scan props retain hidden collision blocks; the forest update adds solid shipping containers.
+Small set dressing
 (extinguishers, tyres, chairs, bins) has no collision at all, so you can walk through it.
 
 ## Art status (honest)
 
-**Environment: first real art pass, not final.** Walls, floors, ceilings, asphalt, containers, plate
-and painted metal use photo-scanned PBR materials; furniture, shelving, switchgear cabinets, road
-barriers, barrels and clutter are scanned meshes; the sky and ambient light come from a scanned
-overcast HDRI, with Lumen global illumination. It reads as a believable industrial site in stills.
-Still placeholder: the building shell itself is flat boxes (no door frames with depth, window
-mullions, skirting, cable runs, roof plant), shipping containers / truck / forklift / machines /
-dumpster are textured boxes, doors are slabs, glass is a flat tint, and there are no decals
-(stains, signage, wear at wall bases beyond a procedural grime band).
+**Environment: forest art pass, not final.** The facility now has scanned weathered concrete,
+industrial window mullions, runoff decals, downpipes, roof rails/HVAC, a supported entrance
+canopy and detailed corrugated containers. Scanned conifers and understory surround the yard;
+the ground blends soil, moss, mud and asphalt with wet reflections. Lighting uses an overcast
+HDRI, Lumen and a warm entry light. Furniture and utility equipment use scanned meshes.
+The building still has a procedural box-based shell, slab doors and simple glass. Some machines
+remain placeholders. Bespoke architecture, richer terrain transitions and further lighting work
+are needed to reach the reference image. See the latest update folder for current screenshots.
 
 **Characters: real model, minimal animation.** Both teams use a SWAT operator (Mixamo skeleton, its
 own uniform, vest and helmet), tinted olive for attackers and navy for defenders. It was imported with

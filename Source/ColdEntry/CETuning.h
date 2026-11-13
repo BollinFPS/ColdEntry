@@ -105,15 +105,21 @@ public:
 	UPROPERTY(Config, EditAnywhere, Category = "Debug") float AutoPlayTimeDilation = 1.f;
 
 	// ---------------- Visuals (placeholder lighting calibration) ----------------
-	UPROPERTY(Config, EditAnywhere, Category = "Visuals") float SunLux = 6.f;
-	UPROPERTY(Config, EditAnywhere, Category = "Visuals") float SkyLightIntensity = 1.f;
+	UPROPERTY(Config, EditAnywhere, Category = "Visuals") float SunLux = 3.5f;
+	UPROPERTY(Config, EditAnywhere, Category = "Visuals") float SkyLightIntensity = 3.5f;
 	UPROPERTY(Config, EditAnywhere, Category = "Visuals") float HdriIntensity = 1.f;   // when the scanned HDR sky is imported
 	UPROPERTY(Config, EditAnywhere, Category = "Visuals") float InteriorLightScale = 2.5f;
-	UPROPERTY(Config, EditAnywhere, Category = "Visuals") float ExposureMinEV = -2.5f;
-	UPROPERTY(Config, EditAnywhere, Category = "Visuals") float ExposureMaxEV = 4.f;
-	UPROPERTY(Config, EditAnywhere, Category = "Visuals") float ExposureBias = 0.4f;
-	UPROPERTY(Config, EditAnywhere, Category = "Visuals") float FogDensity = 0.012f;      // light haze for depth outdoors
-	UPROPERTY(Config, EditAnywhere, Category = "Visuals") float WhiteBalance = 5700.f;    // K; lower = cooler image
+	UPROPERTY(Config, EditAnywhere, Category = "Visuals") float ExposureMinEV = 1.5f;
+	UPROPERTY(Config, EditAnywhere, Category = "Visuals") float ExposureMaxEV = 7.f;
+	UPROPERTY(Config, EditAnywhere, Category = "Visuals") float InteriorExposureMinEV = -1.5f;
+	UPROPERTY(Config, EditAnywhere, Category = "Visuals") float InteriorExposureMaxEV = 4.f;
+	UPROPERTY(Config, EditAnywhere, Category = "Visuals") float InteriorExposureBias = 0.5f;
+	UPROPERTY(Config, EditAnywhere, Category = "Visuals") float ExposureBias = 0.5f;
+	UPROPERTY(Config, EditAnywhere, Category = "Visuals") float FogDensity = 0.011f;      // clear courtyard, layered woodland haze
+	UPROPERTY(Config, EditAnywhere, Category = "Visuals") float WhiteBalance = 6200.f;
+	UPROPERTY(Config, EditAnywhere, Category = "World") bool bForestEnvironment = true;
+	UPROPERTY(Config, EditAnywhere, Category = "World", meta = (ClampMin = "0.25", ClampMax = "1.5")) float ForestDensity = 1.f;
+	UPROPERTY(Config, EditAnywhere, Category = "World") int32 ForestSeed = 42017;
 
 	// ---------------- Character models (UE template mannequin, rifle, pistol) ----------------
 	// Off = the old box-built operators and viewmodels.

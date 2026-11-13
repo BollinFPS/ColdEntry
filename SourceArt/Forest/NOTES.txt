@@ -1,0 +1,38 @@
+ColdEntry forest environment
+
+Source models and scanned surfaces are CC0 assets from Poly Haven. Asset IDs,
+source links and texture paths are recorded in manifest.json. Raw downloads
+are excluded from Git; prepared FBX meshes and imported Unreal assets are kept.
+
+Rebuild the source assets:
+1. Run Tools/fetch_forest.py with Python 3.
+2. Run Blender in background mode with --python Tools/prepare_forest.py.
+3. Run UnrealEditor-Cmd.exe ColdEntry.uproject -run=pythonscript
+   -script=<absolute path to Tools/ue_import_forest.py> -unattended -nullrhi.
+   Close running game/editor instances first so Unreal can save the assets.
+   Add -cematerialsonly to update materials without reimporting the meshes.
+
+Fir trees use the artist-authored LOD1 geometry from the Blender sources.
+Their UVMap is a CORNER/FLOAT_VECTOR attribute, not a Blender UV layer.
+prepare_forest.py converts it to a real two-component UV layer before FBX
+export and rejects textured models without UVs. Do not blanket-decimate
+the branches or import the raw FBX: both caused the earlier sparse foliage.
+Fir trunks use a shared world-projected bark scan to avoid stretched trunk
+atlas seams. Branch foliage retains the source UVs and alpha mask.
+
+Runtime placement is in CEMapEnvironment.cpp. It samples the triangulated
+terrain heightfield to anchor vegetation and embeds rocks at their bases.
+The terrain component compensates for FBX's Y-axis handedness conversion.
+ForestDensity and ForestSeed are configurable through UCETuning.
+
+Launch the game with -ceenvironmentshots for seven repeatable exterior and
+interior review images in Saved/Shots; the review run exits automatically.
+Use -ForceRes -ResX=1600 -ResY=900 for consistent captured dimensions.
+
+Primary asset sources:
+https://polyhaven.com/a/fir_tree_01
+https://polyhaven.com/a/pine_sapling_small
+https://polyhaven.com/a/fern_02
+https://polyhaven.com/a/grass_medium_01
+https://polyhaven.com/a/concrete_wall_005
+https://polyhaven.com/a/peeling_painted_wall
