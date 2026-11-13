@@ -1,0 +1,40 @@
+# Unreal-generated build products, caches, and local settings
+Binaries/
+DerivedDataCache/
+Intermediate/
+Saved/
+Build/
+.vs/
+.idea/
+.vscode/
+Content/Developers/
+Content/Collections/
+
+# Generated IDE projects and local user files
+*.sln
+*.suo
+*.opensdf
+*.sdf
+*.VC.db
+*.VC.opendb
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.code-workspace
+
+# Local credentials and editor caches
+.env
+.env.*
+!.env.example
+*.pem
+*.pfx
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db
+
+# Asset fetch metadata contains machine-specific absolute paths.
+# Photoreal_Setup.bat recreates it while reusing downloaded assets.
+/SourceArt/PolyHaven/fetched.json
+/SourceArt/PolyHaven/catalog_*.json
+*.part

@@ -1,0 +1,21 @@
+* text=auto
+*.bat text eol=crlf
+*.cpp text
+*.h text
+*.cs text
+*.py text
+*.ini text
+*.json text
+*.uproject text
+*.md text
+*.uasset binary
+*.umap binary
+*.ubulk binary
+*.uexp binary
+*.fbx binary
+*.exr binary
+*.hdr binary
+*.jpg binary
+*.png binary
+*.wav binary
+*.ogg binary

@@ -1,0 +1,202 @@
+{
+  "_note": "Poly Haven (CC0) asset IDs per texture slot, and how each game surface uses them. tile = cm per texture repeat (match the scan's real width). tint multiplies albedo (linear).",
+  "resolution": "2k",
+  "hdri": "schadowplatz",
+  "hdri_resolution": "4k",
+  "textures": {
+    "ext_concrete": "concrete_wall_008",
+    "roof_concrete": "concrete_layers",
+    "int_plaster": "plastered_wall",
+    "floor": "garage_floor",
+    "drywall": "beige_wall_001",
+    "wood": "fine_grained_wood",
+    "door_wood": "wood_peeling_paint_weathered",
+    "metal_painted": "rusty_metal_03",
+    "steel": "rust_coarse_01",
+    "crate": "raw_plank_wall",
+    "ground": "concrete_floor_03"
+  },
+  "surfaces": {
+    "Concrete": {
+      "tex": "ext_concrete",
+      "tile": 220,
+      "tint": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "rough": 1.0,
+      "grime": 0.6,
+      "macro": 0.6
+    },
+    "Block": {
+      "tex": "int_plaster",
+      "tile": 200,
+      "tint": [
+        0.82,
+        0.86,
+        0.82
+      ],
+      "rough": 1.0,
+      "grime": 0.7,
+      "macro": 0.5
+    },
+    "Floor": {
+      "tex": "floor",
+      "tile": 190,
+      "tint": [
+        0.9,
+        0.9,
+        0.9
+      ],
+      "rough": 0.95,
+      "grime": 0.0,
+      "macro": 0.7
+    },
+    "Drywall": {
+      "tex": "drywall",
+      "tile": 300,
+      "tint": [
+        0.92,
+        0.91,
+        0.87
+      ],
+      "rough": 1.0,
+      "grime": 0.5,
+      "macro": 0.4
+    },
+    "Wood": {
+      "tex": "wood",
+      "tile": 150,
+      "tint": [
+        0.85,
+        0.8,
+        0.75
+      ],
+      "rough": 1.0,
+      "grime": 0.0,
+      "macro": 0.3
+    },
+    "Metal": {
+      "tex": "metal_painted",
+      "tile": 140,
+      "tint": [
+        0.6,
+        0.7,
+        0.75
+      ],
+      "rough": 0.95,
+      "metal": 0.25,
+      "grime": 0.3,
+      "macro": 0.4
+    },
+    "Steel": {
+      "tex": "steel",
+      "tile": 150,
+      "tint": [
+        0.7,
+        0.7,
+        0.72
+      ],
+      "rough": 0.85,
+      "metal": 0.7,
+      "grime": 0.2,
+      "macro": 0.3
+    },
+    "Grate": {
+      "tex": "metal_painted",
+      "tile": 70,
+      "tint": [
+        0.32,
+        0.32,
+        0.32
+      ],
+      "rough": 0.9,
+      "metal": 0.6,
+      "grime": 0.0,
+      "macro": 0.3
+    },
+    "Crate": {
+      "tex": "crate",
+      "tile": 190,
+      "tint": [
+        0.95,
+        0.9,
+        0.85
+      ],
+      "rough": 1.0,
+      "grime": 0.2,
+      "macro": 0.3
+    },
+    "Asphalt": {
+      "tex": "ground",
+      "tile": 260,
+      "tint": [
+        0.55,
+        0.55,
+        0.55
+      ],
+      "rough": 1.0,
+      "grime": 0.0,
+      "macro": 0.8
+    },
+    "Ceiling": {
+      "tex": "drywall",
+      "tile": 120,
+      "tint": [
+        0.88,
+        0.88,
+        0.86
+      ],
+      "rough": 1.0,
+      "grime": 0.0,
+      "macro": 0.3
+    },
+    "Hazard": {
+      "tex": "metal_painted",
+      "tile": 100,
+      "tint": [
+        1.5,
+        1.05,
+        0.12
+      ],
+      "rough": 0.9,
+      "metal": 0.1,
+      "grime": 0.3,
+      "macro": 0.3
+    },
+    "Paint": {
+      "tex": "metal_painted",
+      "tile": 120,
+      "tint": [
+        0.78,
+        0.8,
+        0.78
+      ],
+      "rough": 0.9,
+      "metal": 0.2,
+      "grime": 0.3,
+      "macro": 0.3
+    },
+    "Gunmetal": {
+      "tex": "steel",
+      "tile": 40,
+      "tint": [
+        0.14,
+        0.14,
+        0.15
+      ],
+      "rough": 0.7,
+      "metal": 0.9,
+      "grime": 0.0,
+      "macro": 0.0
+    }
+  },
+  "models": {
+    "barrel": "barrel_03",
+    "crate": "wooden_crate_02",
+    "box": "cardboard_box_01",
+    "table": "WoodenTable_03",
+    "chair": "WoodenChair_01"
+  }
+}
