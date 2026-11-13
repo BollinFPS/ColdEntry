@@ -65,6 +65,7 @@ public:
 	FString Banner; float BannerUntil = 0.f;
 	bool bAutoPlay = false;
 	bool bDebugNav = false;
+	bool bShotTour = false;                 // -ceshots: fly a fixed set of cameras, save Saved/Shots/*.png, quit
 
 	UPROPERTY() TObjectPtr<ACELevelBuilder> Level;
 	UPROPERTY() TArray<TObjectPtr<ACECharacter>> Characters;
@@ -74,6 +75,7 @@ public:
 	UPROPERTY() TArray<TObjectPtr<ACEGadget>> Gadgets;
 	UPROPERTY() TArray<TObjectPtr<ACESmoke>> Smokes;
 	UPROPERTY() TObjectPtr<ACameraActor> Overview;
+	UPROPERTY() TObjectPtr<AActor> ViewOverride;   // shot tour: what the local view should look through
 
 	TMap<ACECharacter*, FCEIntel> Intel[2];     // [ECETeam] -> what that team knows about enemies
 	TMap<ACECharacter*, FVector> SpawnAnchor;
@@ -123,6 +125,12 @@ private:
 	void UpdateCameraIntel(float Dt);
 	void UpdateRules(float Dt);
 	void DrawNavDebug();
+	void TickShotTour();
+	bool SetupShot(int32 Idx);
+	UPROPERTY() TObjectPtr<ACameraActor> ShotCam;
+	int32 ShotIdx = -1;
+	bool bShotTaken = false;
+	double TourStart = 0.0, ShotStart = 0.0, QuietSince = 0.0;
 	FCERoundSummary BuildSummary(ECETeam Winner, const FString& Reason) const;
 	float CamIntelT = 0.f;
 	TMap<ACECharacter*, float> OutsideTime;

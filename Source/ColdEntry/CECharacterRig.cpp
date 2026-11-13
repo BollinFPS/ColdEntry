@@ -10,6 +10,7 @@
 //              solved with two-bone IK onto the first-person weapon using the grip relationship the
 //              third-person animation uses.
 #include "CECharacter.h"
+#include "CERigShared.h"
 #include "ColdEntry.h"
 #include "CETuning.h"
 #include "CEAssets.h"
@@ -24,65 +25,6 @@
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Animation/AnimInstance.h"
 
-namespace CERig
-{
-	static const TCHAR* Manny = TEXT("/Game/Characters/Mannequins/Meshes/SKM_Manny_Simple.SKM_Manny_Simple");
-	static const TCHAR* Quinn = TEXT("/Game/Characters/Mannequins/Meshes/SKM_Quinn_Simple.SKM_Quinn_Simple");
-	static const TCHAR* AbpRifle = TEXT("/Game/Variant_Shooter/Anims/ABP_TP_Rifle.ABP_TP_Rifle_C");
-	static const TCHAR* AbpPistol = TEXT("/Game/Variant_Shooter/Anims/ABP_TP_Pistol.ABP_TP_Pistol_C");
-	static const TCHAR* Rifle = TEXT("/Game/Weapons/Rifle/Meshes/SM_Rifle.SM_Rifle");
-	static const TCHAR* Pistol = TEXT("/Game/Weapons/Pistol/Meshes/SM_Pistol.SM_Pistol");
-	// Measured from the template meshes (Saved/Inspect): +Y is the barrel axis.
-	static const FVector RifleMuzzle(0.f, 51.5f, 9.9f);
-	static const FVector PistolMuzzle(0.f, 19.6f, 9.2f);
-	static const FVector RifleMagWell(0.f, 15.f, -2.f);
-	static const FVector PistolMagWell(0.f, 1.f, -4.f);
-	static const FName Grip(TEXT("HandGrip_R"));
-	static const FRotator MeshYaw(0.f, -90.f, 0.f); // template assets face +Y; our actors face +X
-}
-
-static const UCETuning* RT() { return UCETuning::Get(); }
-
-template <class T>
-static T* LoadQuiet(const TCHAR* Path) { return LoadObject<T>(nullptr, Path, nullptr, LOAD_NoWarn | LOAD_Quiet); }
-
-static FTransform BoneW(UPoseableMeshComponent* M, FName B) { return M->GetBoneTransformByName(B, EBoneSpaces::WorldSpace); }
-
-/** Two-bone IK in world space on a poseable mesh. Pole is a direction the middle joint should bend towards. */
-static void TwoBoneIK(UPoseableMeshComponent* M, FName A, FName B, FName C, const FVector& Target, const FVector& Pole, const FQuat* EndRot)
-{
-	const FVector PA = BoneW(M, A).GetLocation();
-	const FVector PB = BoneW(M, B).GetLocation();
-	const FVector PC = BoneW(M, C).GetLocation();
-	const float L1 = (PB - PA).Size(), L2 = (PC - PB).Size();
-	if (L1 < 1.f || L2 < 1.f) return;
-	const FVector ToT = Target - PA;
-	const float Raw = ToT.Size();
-	if (Raw < 1.f) return;
-	const FVector Dir = ToT / Raw;
-	const float D = FMath::Clamp(Raw, FMath::Abs(L1 - L2) + 0.5f, L1 + L2 - 0.05f);
-	const float CosA = FMath::Clamp((L1 * L1 + D * D - L2 * L2) / (2.f * L1 * D), -1.f, 1.f);
-	FVector PoleDir = Pole - Dir * FVector::DotProduct(Pole, Dir);
-	if (!PoleDir.Normalize())
-	{
-		PoleDir = (PB - PA) - Dir * FVector::DotProduct(PB - PA, Dir);
-		if (!PoleDir.Normalize()) return;
-	}
-	const FVector NewB = PA + (Dir * CosA + PoleDir * FMath::Sqrt(FMath::Max(0.f, 1.f - CosA * CosA))) * L1;
-	const FVector NewC = PA + Dir * D;
-	const FQuat KeepEnd = EndRot ? *EndRot : BoneW(M, C).GetRotation();
-
-	const FQuat RA = BoneW(M, A).GetRotation();
-	const FQuat DA = FQuat::FindBetweenNormals((PB - PA).GetSafeNormal(), (NewB - PA).GetSafeNormal());
-	M->SetBoneRotationByName(A, (DA * RA).Rotator(), EBoneSpaces::WorldSpace);
-
-	const FTransform TB = BoneW(M, B);
-	const FVector PC2 = BoneW(M, C).GetLocation();
-	const FQuat DB = FQuat::FindBetweenNormals((PC2 - TB.GetLocation()).GetSafeNormal(), (NewC - TB.GetLocation()).GetSafeNormal());
-	M->SetBoneRotationByName(B, (DB * TB.GetRotation()).Rotator(), EBoneSpaces::WorldSpace);
-	M->SetBoneRotationByName(C, KeepEnd.Rotator(), EBoneSpaces::WorldSpace);
-}
-
 void UCERigTicker::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
@@ -96,23 +38,24 @@ bool ACECharacter::BuildRealBody()
 {
 	const UCETuning* T = RT();
 	if (!T->bRealCharacters) return false;
+	if (T->bSwatCharacters && BuildSwatBody()) return true;
 	const bool bAlt = (GetTypeHash(CEName) % 3u) == 1u;
-	USkeletalMesh* Mesh = LoadQuiet<USkeletalMesh>(bAlt ? CERig::Quinn : CERig::Manny);
-	if (!Mesh) Mesh = LoadQuiet<USkeletalMesh>(CERig::Manny);
+	USkeletalMesh* BodyMesh = LoadQuiet<USkeletalMesh>(bAlt ? CERig::Quinn : CERig::Manny);
+	if (!BodyMesh) BodyMesh = LoadQuiet<USkeletalMesh>(CERig::Manny);
 	AnimRifle = LoadClass<UAnimInstance>(nullptr, CERig::AbpRifle, nullptr, LOAD_NoWarn | LOAD_Quiet);
 	AnimPistol = LoadClass<UAnimInstance>(nullptr, CERig::AbpPistol, nullptr, LOAD_NoWarn | LOAD_Quiet);
 	UStaticMesh* RifleM = LoadQuiet<UStaticMesh>(CERig::Rifle);
 	UStaticMesh* PistolM = LoadQuiet<UStaticMesh>(CERig::Pistol);
-	if (!Mesh || !AnimRifle || !RifleM || !PistolM)
+	if (!BodyMesh || !AnimRifle || !RifleM || !PistolM)
 	{
 		UE_LOG(LogColdEntry, Warning, TEXT("Template character assets missing (mesh %d anim %d rifle %d pistol %d) - using box operators. Run Import_Characters.bat."),
-			Mesh != nullptr, AnimRifle != nullptr, RifleM != nullptr, PistolM != nullptr);
+			BodyMesh != nullptr, AnimRifle != nullptr, RifleM != nullptr, PistolM != nullptr);
 		return false;
 	}
 	if (!AnimPistol) AnimPistol = AnimRifle;
 
 	USkeletalMeshComponent* Drv = GetMesh();
-	Drv->SetSkeletalMeshAsset(Mesh);
+	Drv->SetSkeletalMeshAsset(BodyMesh);
 	Drv->SetVisibility(false);
 	Drv->SetCastShadow(false);
 	Drv->SetCollisionEnabled(ECollisionEnabled::NoCollision);
@@ -124,7 +67,7 @@ bool ACECharacter::BuildRealBody()
 	{
 		UPoseableMeshComponent* P = NewObject<UPoseableMeshComponent>(this, Name);
 		P->SetupAttachment(Parent);
-		P->SetSkinnedAssetAndUpdate(Mesh, true);
+		P->SetSkinnedAssetAndUpdate(BodyMesh, true);
 		P->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		P->SetCanEverAffectNavigation(false);
 		if (bFirstPerson) { P->SetOnlyOwnerSee(true); P->SetCastShadow(false); P->bCastHiddenShadow = false; }
@@ -145,6 +88,7 @@ bool ACECharacter::BuildRealBody()
 	{
 		UStaticMeshComponent* W = NewObject<UStaticMeshComponent>(this);
 		W->SetStaticMesh(i == 0 ? RifleM : PistolM);
+		if (UMaterialInterface* WM = UCEAssets::Get(this)->WeaponMaterial(i == 1)) W->SetMaterial(0, WM);
 		W->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		W->SetCanEverAffectNavigation(false);
 		W->SetOwnerNoSee(true);
@@ -175,6 +119,39 @@ bool ACECharacter::BuildRealBody()
 	return true;
 }
 
+// Uniform colours on the mannequin: the torso material takes the team tint, head/legs/hands the dark under-layer.
+// The template material is glossy painted metal; pushed to a matte, non-metallic finish it reads as fabric.
+void ACECharacter::ApplyRealTeamLook()
+{
+	if (!bRealBody) return;
+	if (bSwat) { ApplySwatTeamLook(); return; }
+	const UCETuning* T = RT();
+	USkeletalMeshComponent* Drv = GetMesh();
+	const int32 Num = Drv->GetNumMaterials();
+	if (BodyMIDs.Num() != Num)
+	{
+		BodyMIDs.Reset();
+		for (int32 i = 0; i < Num; ++i)
+		{
+			UMaterialInstanceDynamic* MID = UMaterialInstanceDynamic::Create(Drv->GetMaterial(i), this);
+			BodyMIDs.Add(MID);
+			for (UMeshComponent* M : { (UMeshComponent*)Drv, (UMeshComponent*)TPBody.Get(), (UMeshComponent*)FPArms.Get() })
+				if (M && MID) M->SetMaterial(i, MID);
+		}
+	}
+	const FLinearColor TeamTint = Team == ECETeam::Attack ? T->AttackTint : T->DefendTint;
+	for (int32 i = 0; i < Num; ++i)
+	{
+		UMaterialInstanceDynamic* MID = BodyMIDs[i];
+		if (!MID) continue;
+		MID->SetVectorParameterValue(TEXT("Paint Tint"), i == 1 ? TeamTint : T->UnderTint);
+		MID->SetVectorParameterValue(TEXT("LogoTint"), FLinearColor::Black);
+		MID->SetScalarParameterValue(TEXT("MetalPaintMetallic"), 0.f);
+		MID->SetScalarParameterValue(TEXT("MetalPaintRoughness"), T->UniformRoughness);
+		MID->SetScalarParameterValue(TEXT("EmissivePower"), 0.f);
+	}
+}
+
 UStaticMeshComponent* ACECharacter::GearOnBone(FName Bone, const FVector& Off, const FVector& Half, ECESurf Surf, bool bSphere)
 {
 	UCEAssets* A = UCEAssets::Get(this);
@@ -182,7 +159,7 @@ UStaticMeshComponent* ACECharacter::GearOnBone(FName Bone, const FVector& Off, c
 	const FVector BoneLocal = ActorT.InverseTransformPosition(BoneW(TPBody, Bone).GetLocation());
 	UStaticMeshComponent* C = NewObject<UStaticMeshComponent>(this);
 	C->SetStaticMesh(bSphere ? A->Sphere.Get() : A->Cube.Get());
-	C->SetMaterial(0, A->Surf(Surf));
+	C->SetMaterial(0, A->SurfMoving(Surf));
 	C->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	C->SetCanEverAffectNavigation(false);
 	C->SetOwnerNoSee(true);
@@ -230,6 +207,7 @@ bool ACECharacter::BuildRealViewmodels()
 		const FVector Off = (bPistol ? T->FPPistolOffset : T->FPRifleOffset) * S;
 		UStaticMeshComponent* W = NewObject<UStaticMeshComponent>(this);
 		W->SetStaticMesh(bPistol ? PistolM : RifleM);
+		if (UMaterialInterface* WM = A->WeaponMaterial(bPistol)) W->SetMaterial(0, WM);
 		W->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		W->SetCanEverAffectNavigation(false);
 		W->SetOnlyOwnerSee(true);
@@ -262,6 +240,7 @@ bool ACECharacter::BuildRealViewmodels()
 // =============================================================================================
 void ACECharacter::TickRigLate(float Dt)
 {
+	if (bSwat) { TickSwatLate(Dt); return; }
 	if (!bRealBody || bDead || !bBuilt) return;
 	USkeletalMeshComponent* Drv = GetMesh();
 	const UCETuning* T = RT();
@@ -392,6 +371,7 @@ void ACECharacter::TickFPArms(float Dt, int32 VMIdx, float RelA, float RP)
 // =============================================================================================
 void ACECharacter::StartRagdoll(const FVector& Dir)
 {
+	if (bSwat) { StartSwatDeath(); return; }
 	USkeletalMeshComponent* Drv = GetMesh();
 	for (int32 i = 0; i < RigGear.Num(); ++i)
 		if (RigGear[i]) RigGear[i]->AttachToComponent(Drv, FAttachmentTransformRules::KeepRelativeTransform, RigGearBones[i]);

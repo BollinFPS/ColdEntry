@@ -6,6 +6,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "Materials/Material.h"
 #include "Materials/MaterialInstanceDynamic.h"
+#include "Engine/Texture.h"
 
 #if WITH_EDITOR
 #include "Materials/MaterialExpressionVectorParameter.h"
@@ -50,8 +51,10 @@ void UCEAssets::Initialize(FSubsystemCollectionBase& Collection)
 	// Photoreal pass: scanned PBR material instances imported by Tools/ue_import_photoreal.py override the procedural ones.
 	static const TCHAR* SurfNames[] = { TEXT("Concrete"), TEXT("Block"), TEXT("Floor"), TEXT("Drywall"), TEXT("Wood"), TEXT("Metal"), TEXT("Steel"),
 		TEXT("Glass"), TEXT("Grate"), TEXT("Crate"), TEXT("Asphalt"), TEXT("Ceiling"), TEXT("Hazard"), TEXT("Emissive"), TEXT("Tan"), TEXT("Navy"),
-		TEXT("Olive"), TEXT("Charcoal"), TEXT("Gunmetal"), TEXT("Polymer"), TEXT("Skin"), TEXT("RedDot"), TEXT("Rubber"), TEXT("Paint") };
+		TEXT("Olive"), TEXT("Charcoal"), TEXT("Gunmetal"), TEXT("Polymer"), TEXT("Skin"), TEXT("RedDot"), TEXT("Rubber"), TEXT("Paint"),
+		TEXT("Container"), TEXT("ContainerB") };
 	static_assert(UE_ARRAY_COUNT(SurfNames) == (int32)ECESurf::Count, "SurfNames must match ECESurf");
+	ProcMats = SurfMats;
 	PhotorealCount = 0;
 	for (int32 i = 0; i < (int32)ECESurf::Count; ++i)
 	{
@@ -97,6 +100,8 @@ void UCEAssets::BuildInfos()
 	Set(ECESurf::RedDot,   FLinearColor::Red, 1.f, 0.f, 0.f, ECEPen::None, ECEStep::Metal);
 	Set(ECESurf::Rubber,   FLinearColor(0.02f, 0.02f, 0.02f), 0.9f, 0.f, 0.1f, ECEPen::Solid, ECEStep::Concrete);
 	Set(ECESurf::Paint,    FLinearColor(0.33f, 0.34f, 0.32f), 0.56f, 0.3f, 0.34f, ECEPen::Sheet, ECEStep::Metal);
+	Set(ECESurf::Container,  FLinearColor(0.13f, 0.22f, 0.16f), 0.6f, 0.4f, 0.36f, ECEPen::Sheet, ECEStep::Metal);
+	Set(ECESurf::ContainerB, FLinearColor(0.30f, 0.10f, 0.07f), 0.6f, 0.4f, 0.36f, ECEPen::Sheet, ECEStep::Metal);
 }
 
 #if WITH_EDITOR
@@ -249,6 +254,46 @@ UMaterialInterface* UCEAssets::Surf(ECESurf S)
 {
 	const int32 Idx = (int32)S;
 	return SurfMats.IsValidIndex(Idx) ? SurfMats[Idx].Get() : Fallback.Get();
+}
+
+UMaterialInterface* UCEAssets::SurfMoving(ECESurf S)
+{
+	const int32 Idx = (int32)S;
+	return ProcMats.IsValidIndex(Idx) ? ProcMats[Idx].Get() : Fallback.Get();
+}
+
+UMaterialInterface* UCEAssets::WeaponMaterial(bool bPistol)
+{
+	const int32 Idx = bPistol ? 1 : 0;
+	if (WeaponMats[Idx]) return WeaponMats[Idx];
+	const uint32 Quiet = LOAD_NoWarn | LOAD_Quiet;
+	UMaterialInstanceDynamic* MID = nullptr;
+	if (bPistol)
+	{
+		if (UMaterialInterface* Base = LoadObject<UMaterialInterface>(nullptr, TEXT("/Game/Weapons/Pistol/Materials/MI_Weapon_Pistol.MI_Weapon_Pistol"), nullptr, Quiet))
+		{
+			MID = UMaterialInstanceDynamic::Create(Base, this);
+			MID->SetVectorParameterValue(TEXT("WeaponTint"), FLinearColor(0.045f, 0.045f, 0.05f));
+		}
+	}
+	else
+	{
+		// The template rifle ships white; re-skin it with the prop material using its own colour and normal maps.
+		UMaterialInterface* Prop = LoadObject<UMaterialInterface>(nullptr, TEXT("/Game/Photoreal/Materials/M_CE_Prop.M_CE_Prop"), nullptr, Quiet);
+		UTexture* BC = LoadObject<UTexture>(nullptr, TEXT("/Game/Weapons/Rifle/Textures/T_Rifle_BC.T_Rifle_BC"), nullptr, Quiet);
+		UTexture* N = LoadObject<UTexture>(nullptr, TEXT("/Game/Weapons/Rifle/Textures/T_Rifle_N.T_Rifle_N"), nullptr, Quiet);
+		if (Prop && BC && N)
+		{
+			MID = UMaterialInstanceDynamic::Create(Prop, this);
+			MID->SetTextureParameterValue(TEXT("BaseColorTex"), BC);
+			MID->SetTextureParameterValue(TEXT("NormalTex"), N);
+			MID->SetVectorParameterValue(TEXT("Tint"), FLinearColor(0.16f, 0.16f, 0.17f));
+			MID->SetScalarParameterValue(TEXT("RoughnessMult"), 0.5f);
+			MID->SetScalarParameterValue(TEXT("MetallicMult"), 0.5f);
+		}
+	}
+	WeaponMats[Idx] = MID;
+	return MID;
 }
 
 UMaterialInterface* UCEAssets::Emissive(const FLinearColor& Color, float Intensity)

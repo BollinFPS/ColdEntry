@@ -40,7 +40,7 @@ UStaticMeshComponent* ACEGadget::AddPart(USceneComponent* Parent, const FVector&
 	UStaticMeshComponent* C = NewObject<UStaticMeshComponent>(this);
 	C->SetupAttachment(Parent);
 	C->SetStaticMesh(A->Cube);
-	C->SetMaterial(0, A->Surf(Surf));
+	C->SetMaterial(0, A->SurfMoving(Surf));
 	C->SetRelativeLocation(Loc);
 	C->SetAbsolute(false, false, true);
 	C->SetWorldScale3D(Half / 50.f);
@@ -106,7 +106,7 @@ void ACEGrenade::BuildVisual()
 {
 	UCEAssets* A = UCEAssets::Get(this);
 	Mesh->SetStaticMesh(A->Cylinder);
-	Mesh->SetMaterial(0, A->Surf(Type == ECEGadget::Flash ? ECESurf::Olive : ECESurf::Charcoal));
+	Mesh->SetMaterial(0, A->SurfMoving(Type == ECEGadget::Flash ? ECESurf::Olive : ECESurf::Charcoal));
 	Mesh->SetRelativeScale3D(FVector(0.065f, 0.065f, 0.11f));
 }
 
@@ -157,7 +157,7 @@ void ACESmoke::BeginPlay()
 		UStaticMeshComponent* P = NewObject<UStaticMeshComponent>(this);
 		P->SetupAttachment(RootComponent);
 		P->SetStaticMesh(A->Sphere);
-		P->SetMaterial(0, A->HasTranslucency() ? (UMaterialInterface*)Mat : A->Surf(ECESurf::Ceiling));
+		P->SetMaterial(0, A->HasTranslucency() ? (UMaterialInterface*)Mat : A->SurfMoving(ECESurf::Ceiling));
 		P->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		P->SetCastShadow(false);
 		P->RegisterComponent();
@@ -209,11 +209,11 @@ void ACEBreachCharge::BuildVisual()
 {
 	UCEAssets* A = UCEAssets::Get(this);
 	Mesh->SetStaticMesh(A->Cube);
-	Mesh->SetMaterial(0, A->Surf(ECESurf::Hazard));
+	Mesh->SetMaterial(0, A->SurfMoving(ECESurf::Hazard));
 	Mesh->SetWorldScale3D(FVector(0.06f, 0.24f, 0.16f));
 	MakeShootable(Mesh);
 	Led->SetStaticMesh(A->Cube);
-	Led->SetMaterial(0, A->Surf(ECESurf::RedDot));
+	Led->SetMaterial(0, A->SurfMoving(ECESurf::RedDot));
 	Led->SetRelativeLocation(FVector(55, 0, 30));
 	Led->SetRelativeScale3D(FVector(0.4f, 0.12f, 0.12f));
 }
@@ -255,7 +255,7 @@ void ACESecurityCamera::BuildVisual()
 {
 	UCEAssets* A = UCEAssets::Get(this);
 	Mesh->SetStaticMesh(A->Cube);
-	Mesh->SetMaterial(0, A->Surf(bFixed ? ECESurf::Paint : ECESurf::Charcoal));
+	Mesh->SetMaterial(0, A->SurfMoving(bFixed ? ECESurf::Paint : ECESurf::Charcoal));
 	Mesh->SetWorldScale3D(bFixed ? FVector(0.26f, 0.12f, 0.12f) : FVector(0.12f, 0.08f, 0.08f));
 	MakeShootable(Mesh);
 	UStaticMeshComponent* Lens = AddPart(Mesh, FVector(52, 0, 0), FVector(1.5f, 3.5f, 3.5f), ECESurf::Polymer);
@@ -293,7 +293,7 @@ void ACEAlarm::BuildVisual()
 {
 	UCEAssets* A = UCEAssets::Get(this);
 	Mesh->SetStaticMesh(A->Cube);
-	Mesh->SetMaterial(0, A->Surf(ECESurf::Olive));
+	Mesh->SetMaterial(0, A->SurfMoving(ECESurf::Olive));
 	Mesh->SetWorldScale3D(FVector(0.09f, 0.09f, 0.04f));
 	MakeShootable(Mesh);
 	Led->SetStaticMesh(A->Cube);
@@ -354,7 +354,7 @@ void ACEDrone::BuildVisual()
 {
 	UCEAssets* A = UCEAssets::Get(this);
 	Mesh->SetStaticMesh(A->Cube);
-	Mesh->SetMaterial(0, A->Surf(ECESurf::Charcoal));
+	Mesh->SetMaterial(0, A->SurfMoving(ECESurf::Charcoal));
 	Mesh->SetWorldScale3D(FVector(0.24f, 0.14f, 0.08f));
 	for (int32 s = -1; s <= 1; s += 2)
 	{

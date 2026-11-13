@@ -131,7 +131,7 @@ UStaticMeshComponent* ACECharacter::Part(USceneComponent* Parent, const FVector&
 	UStaticMeshComponent* C = NewObject<UStaticMeshComponent>(this);
 	C->SetupAttachment(Parent);
 	C->SetStaticMesh(A->Cube);
-	C->SetMaterial(0, A->Surf(Surf));
+	C->SetMaterial(0, A->SurfMoving(Surf));
 	C->SetRelativeLocation(Loc);
 	C->SetRelativeRotation(Rot);
 	C->SetRelativeScale3D(Half / 50.f);
@@ -179,10 +179,11 @@ void ACECharacter::InitLoadout(ECETeam InTeam, ECEWeaponId Primary, const FStrin
 	}
 	UCEAssets* A = UCEAssets::Get(this);
 	const bool bAtk = Team == ECETeam::Attack;
-	for (UStaticMeshComponent* P : UniformParts) P->SetMaterial(0, A->Surf(bAtk ? ECESurf::Tan : ECESurf::Navy));
-	for (UStaticMeshComponent* P : SleeveParts) P->SetMaterial(0, A->Surf(bAtk ? ECESurf::Tan : ECESurf::Navy));
-	for (UStaticMeshComponent* P : GearParts) P->SetMaterial(0, A->Surf(bAtk ? ECESurf::Charcoal : ECESurf::Paint));
-	for (UStaticMeshComponent* P : BandParts) P->SetMaterial(0, A->Surf(bAtk ? ECESurf::Hazard : ECESurf::Ceiling));
+	for (UStaticMeshComponent* P : UniformParts) P->SetMaterial(0, A->SurfMoving(bAtk ? ECESurf::Tan : ECESurf::Navy));
+	for (UStaticMeshComponent* P : SleeveParts) P->SetMaterial(0, A->SurfMoving(bAtk ? ECESurf::Tan : ECESurf::Navy));
+	for (UStaticMeshComponent* P : GearParts) P->SetMaterial(0, A->SurfMoving(bAtk ? ECESurf::Charcoal : ECESurf::Polymer));
+	for (UStaticMeshComponent* P : BandParts) P->SetMaterial(0, A->SurfMoving(bAtk ? ECESurf::Hazard : ECESurf::Ceiling));
+	ApplyRealTeamLook();
 
 	UCharacterMovementComponent* CMC = GetCharacterMovement();
 	CMC->MaxAcceleration = TU()->Acceleration;
@@ -707,6 +708,7 @@ void ACECharacter::UseGadget()
 	case ECEGadget::Flash:
 	case ECEGadget::Smoke:
 		G->SpawnGrenade(this, Equipped, Eye + Dir * 35.f, (Dir + FVector(0, 0, 0.12f)).GetSafeNormal() * T->ThrowSpeed);
+		LastThrowTime = Now();
 		Consume(Equipped);
 		Equipped = ECEGadget::None;
 		EquipEnd = Now() + 0.45f;
@@ -783,7 +785,7 @@ ECEAction ACECharacter::QueryInteract(AActor*& OutTarget, FVector& OutLoc, FStri
 	float Block = 230.f;
 	if (GetWorld()->LineTraceSingleByChannel(H, Eye, Eye + Dir * 230.f, ECC_Visibility, Q)) Block = H.Distance + 25.f;
 
-	ACEEntity* Best = nullptr; float BestT = 1e9f; FVector BestLoc;
+	ACEEntity* Best = nullptr; float BestT = 1e9f; FVector BestLoc = FVector::ZeroVector;
 	for (ACEEntity* E : G->Level->Entities)
 	{
 		if (!E) continue;

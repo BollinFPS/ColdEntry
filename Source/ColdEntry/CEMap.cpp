@@ -9,6 +9,8 @@
 #include "Components/SkyLightComponent.h"
 #include "Components/SkyAtmosphereComponent.h"
 #include "Components/PostProcessComponent.h"
+#include "Components/ExponentialHeightFogComponent.h"
+#include "Materials/MaterialInterface.h"
 #include "Engine/World.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/TextureCube.h"
@@ -56,6 +58,7 @@ UInstancedStaticMeshComponent* ACELevelBuilder::GetISM(ECESurf S, ECECol C)
 	switch (C)
 	{
 	case ECECol::Solid:
+	case ECECol::HiddenSolid:
 		I->SetCollisionProfileName(TEXT("BlockAll"));
 		I->SetCollisionResponseToChannel(CE_TRACE_WEAPON, ECR_Block);
 		break;
@@ -70,7 +73,7 @@ UInstancedStaticMeshComponent* ACELevelBuilder::GetISM(ECESurf S, ECECol C)
 		I->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		break;
 	}
-	if (C == ECECol::HiddenPawn) { I->SetVisibility(false); I->SetHiddenInGame(true); I->SetCastShadow(false); }
+	if (C == ECECol::HiddenPawn || C == ECECol::HiddenSolid) { I->SetVisibility(false); I->SetHiddenInGame(true); I->SetCastShadow(false); }
 	if (S == ECESurf::Emissive) I->SetCastShadow(false);
 	I->RegisterComponent();
 	AddInstanceComponent(I);
@@ -247,47 +250,167 @@ void ACELevelBuilder::Light(float X, float Y, float Z, float Candela, float Radi
 	}
 }
 
-// Scanned prop (imported by Tools/ue_import_photoreal.py). Silently skipped when not imported.
-void ACELevelBuilder::Prop(const TCHAR* Key, float X, float Y, float Z, float Yaw, ECESurf Surf, float Scale)
+// ---------------------------------------------------------------------------------------------
+// Scanned props (imported by Tools/ue_import_photoreal.py). Everything here degrades to the graybox
+// when an asset has not been imported. Convention: the scans face +Y, "Front" is the world yaw the
+// front should face (0 = +X east, 90 = +Y north, 180 = west, 270 = south).
+// ---------------------------------------------------------------------------------------------
+UStaticMesh* ACELevelBuilder::PropMesh(const TCHAR* Key) const
 {
 	const FString Path = FString::Printf(TEXT("/Game/Photoreal/Props/SM_%s.SM_%s"), Key, Key);
-	UStaticMesh* Mesh = LoadObject<UStaticMesh>(nullptr, *Path, nullptr, LOAD_NoWarn | LOAD_Quiet);
-	if (!Mesh) return;
+	return LoadObject<UStaticMesh>(nullptr, *Path, nullptr, LOAD_NoWarn | LOAD_Quiet);
+}
+
+UStaticMeshComponent* ACELevelBuilder::AddPropComp(UStaticMesh* Mesh, const FVector& Loc, float Yaw, const FVector& Scale, bool bCollide, ECESurf Surf)
+{
 	UStaticMeshComponent* C = NewObject<UStaticMeshComponent>(this);
 	C->SetupAttachment(RootComponent);
 	C->SetMobility(EComponentMobility::Static);
 	C->SetStaticMesh(Mesh);
-	const FBox B = Mesh->GetBoundingBox();
-	C->SetRelativeScale3D(FVector(Scale));
+	C->SetRelativeScale3D(Scale);
 	C->SetRelativeRotation(FRotator(0, Yaw, 0));
-	C->SetRelativeLocation(M(X, Y, Z) - FVector(0, 0, B.Min.Z * Scale));
-	C->SetCollisionProfileName(TEXT("BlockAll"));
-	C->SetCollisionResponseToChannel(CE_TRACE_WEAPON, ECR_Block);
+	C->SetRelativeLocation(Loc);
+	C->SetCanEverAffectNavigation(false);
+	if (bCollide)
+	{
+		C->SetCollisionProfileName(TEXT("BlockAll"));
+		C->SetCollisionResponseToChannel(CE_TRACE_WEAPON, ECR_Block);
+		CompSurf.Add(C, Surf);
+	}
+	else C->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	C->RegisterComponent();
 	AddInstanceComponent(C);
-	CompSurf.Add(C, Surf);
+	return C;
+}
+
+// Free-standing prop resting on Z. Yaw is the raw mesh rotation.
+void ACELevelBuilder::Prop(const TCHAR* Key, float X, float Y, float Z, float Yaw, ECESurf Surf, float Scale, bool bCollide)
+{
+	UStaticMesh* Mesh = PropMesh(Key);
+	if (!Mesh) return;
+	const FBox B = Mesh->GetBoundingBox();
+	AddPropComp(Mesh, M(X, Y, Z) - FVector(0, 0, B.Min.Z * Scale), Yaw, FVector(Scale), bCollide, Surf);
+}
+
+// Set dressing with no collision, centred on (X, Y) and turned to face Front.
+void ACELevelBuilder::PropFacing(const TCHAR* Key, float X, float Y, float Z, float Front, float Scale)
+{
+	UStaticMesh* Mesh = PropMesh(Key);
+	if (!Mesh) return;
+	const FBox B = Mesh->GetBoundingBox();
+	const float Yaw = Front - 90.f;
+	const FVector Anchor(B.GetCenter().X, B.GetCenter().Y, B.Min.Z);
+	AddPropComp(Mesh, M(X, Y, Z) - FRotator(0, Yaw, 0).RotateVector(Anchor * Scale), Yaw, FVector(Scale), false, ECESurf::Metal);
+}
+
+// Wall-mounted dressing: (X, Y) is a point on the wall face, Z the underside of the object.
+void ACELevelBuilder::WallProp(const TCHAR* Key, float X, float Y, float Z, float Front, float Scale)
+{
+	UStaticMesh* Mesh = PropMesh(Key);
+	if (!Mesh) return;
+	const FBox B = Mesh->GetBoundingBox();
+	const float Yaw = Front - 90.f;
+	const FVector Anchor(B.GetCenter().X, B.Min.Y, B.Min.Z);   // back face, bottom centre
+	AddPropComp(Mesh, M(X, Y, Z) - FRotator(0, Yaw, 0).RotateVector(Anchor * Scale), Yaw, FVector(Scale), false, ECESurf::Metal);
+}
+
+// Replaces a graybox block with scanned meshes. The block stays as hidden collision, so cover, bullet
+// penetration and bot navigation are exactly what they were. The mesh is repeated along the long side and
+// each axis is then stretched a little (never far from uniform) so what you see fills what stops you.
+// Returns the top of the dressing in metres.
+float ACELevelBuilder::Dress(const TCHAR* Key, float X0, float Y0, float Z0, float X1, float Y1, float Z1, ECESurf S, float Front, float MaxScale)
+{
+	UStaticMesh* Mesh = PropMesh(Key);
+	if (!Mesh) { Box(X0, Y0, Z0, X1, Y1, Z1, S); return Z1; }
+	Box(X0, Y0, Z0, X1, Y1, Z1, S, ECECol::HiddenSolid);
+	const FBox B = Mesh->GetBoundingBox();
+	const FVector MS = B.GetSize().ComponentMax(FVector(1.f));
+	const float Yaw = Front - 90.f;
+	const bool bSwap = FMath::Abs(FMath::Sin(FMath::DegreesToRadians(Yaw))) > 0.5f;   // footprint turned a quarter
+	const float BX = (X1 - X0) * 100.f, BY = (Y1 - Y0) * 100.f, BZ = (Z1 - Z0) * 100.f;
+	const bool bAlongX = BX >= BY;
+	const float Long = bAlongX ? BX : BY, Short = bAlongX ? BY : BX;
+	const float MAlongX = bSwap ? MS.Y : MS.X, MAlongY = bSwap ? MS.X : MS.Y;
+	const float MLong = bAlongX ? MAlongX : MAlongY, MShort = bAlongX ? MAlongY : MAlongX;
+	const float Base = FMath::Clamp(FMath::Min(BZ / MS.Z, Short / MShort), 0.7f, MaxScale);
+	const int32 N = FMath::Max(1, FMath::RoundToInt(Long / (MLong * Base)));
+	const float SL = FMath::Clamp(Long / (N * MLong), Base * 0.77f, Base * 1.3f);
+	const float SS = FMath::Clamp(Short / MShort, Base * 0.77f, Base * 1.15f);
+	const float SZ = FMath::Clamp(BZ / MS.Z, Base * 0.77f, Base * 1.3f);
+	const float SWX = bAlongX ? SL : SS, SWY = bAlongX ? SS : SL;                 // per world axis
+	const FVector Scale(bSwap ? SWY : SWX, bSwap ? SWX : SWY, SZ);               // per mesh axis
+	const FVector Anchor(B.GetCenter().X, B.GetCenter().Y, B.Min.Z);
+	const FVector Off = FRotator(0, Yaw, 0).RotateVector(Anchor * Scale);
+	for (int32 i = 0; i < N; ++i)
+	{
+		const float T = (i + 0.5f) / N;
+		const FVector Slot = bAlongX ? M(FMath::Lerp(X0, X1, T), (Y0 + Y1) * 0.5f, Z0) : M((X0 + X1) * 0.5f, FMath::Lerp(Y0, Y1, T), Z0);
+		AddPropComp(Mesh, Slot - Off, Yaw, Scale, false, S);
+	}
+	UE_LOG(LogColdEntry, Log, TEXT("Dress %s x%d scale L%.2f S%.2f Z%.2f in %.0fx%.0fx%.0f"), Key, N, SL, SS, SZ, BX, BY, BZ);
+	return Z0 + MS.Z * SZ / 100.f;
+}
+
+static const TCHAR* GPropKeys[] = {
+	TEXT("barrel"), TEXT("barrel_red"), TEXT("barrel_blue"), TEXT("crate"), TEXT("box"), TEXT("dresser"), TEXT("desk"),
+	TEXT("chair"), TEXT("monobloc"), TEXT("stool"), TEXT("sofa"), TEXT("shelves"), TEXT("shelves_wide"), TEXT("cabinet"),
+	TEXT("toolchest"), TEXT("tv"), TEXT("barrier"), TEXT("barrier_b"), TEXT("trashcan"), TEXT("extinguisher"),
+	TEXT("powerbox"), TEXT("utilbox"), TEXT("utilbox_green"), TEXT("aircon"), TEXT("tyre"), TEXT("wetfloor"), TEXT("walllamp") };
+
+TArray<FVector> ACELevelBuilder::SpawnPropLineup(const FVector& StartCm, const FVector& StepCm)
+{
+	TArray<FVector> Out;
+	for (const TCHAR* Key : GPropKeys)
+	{
+		const FVector P = StartCm + StepCm * Out.Num();
+		Out.Add(P);
+		UStaticMesh* Mesh = PropMesh(Key);
+		if (!Mesh) { UE_LOG(LogColdEntry, Warning, TEXT("Lineup: %s is not imported"), Key); continue; }
+		const FBox B = Mesh->GetBoundingBox();
+		AddPropComp(Mesh, P - FVector(B.GetCenter().X, B.GetCenter().Y, B.Min.Z), 0.f, FVector::OneVector, false, ECESurf::Metal);
+		UE_LOG(LogColdEntry, Log, TEXT("Lineup %d: %s size %.0f x %.0f x %.0f cm"), Out.Num() - 1, Key, B.GetSize().X, B.GetSize().Y, B.GetSize().Z);
+	}
+	return Out;
 }
 
 void ACELevelBuilder::BuildProps()
 {
+	const ECESurf Mt = ECESurf::Metal, Cr = ECESurf::Crate;
 	// loading bay
-	Prop(TEXT("barrel"), 1.4f, 10.6f, 0, 0, ECESurf::Metal); Prop(TEXT("barrel"), 2.3f, 10.4f, 0, 30, ECESurf::Metal); Prop(TEXT("barrel"), 1.8f, 11.4f, 0, 70, ECESurf::Metal);
-	Prop(TEXT("crate"), 9.7f, 21.9f, 0, 15, ECESurf::Crate); Prop(TEXT("crate"), 6.6f, 2.5f, 0, -10, ECESurf::Crate);
-	Prop(TEXT("box"), 2.0f, 0.8f, 0, 0, ECESurf::Crate); Prop(TEXT("box"), 2.6f, 0.9f, 0, 30, ECESurf::Crate);
+	Prop(TEXT("barrel"), 1.4f, 10.6f, 0, 0, Mt); Prop(TEXT("barrel"), 2.3f, 10.4f, 0, 30, Mt); Prop(TEXT("barrel_red"), 1.8f, 11.4f, 0, 70, Mt);
+	Prop(TEXT("crate"), 9.7f, 21.9f, 0, 15, Cr); Prop(TEXT("crate"), 6.6f, 2.5f, 0, -10, Cr);
+	Prop(TEXT("box"), 2.0f, 0.8f, 0, 0, Cr); Prop(TEXT("box"), 2.6f, 0.9f, 0, 30, Cr);
+	PropFacing(TEXT("extinguisher"), 13.5f, 11.2f, 0, 180);
+	WallProp(TEXT("powerbox"), 13.875f, 9.0f, 1.1f, 180);
+	PropFacing(TEXT("tyre"), 12.9f, 0.26f, 0, 90); PropFacing(TEXT("tyre"), 12.2f, 0.28f, 0, 82); PropFacing(TEXT("barrel_blue"), 13.2f, 1.9f, 0, 90);
+	// service corridor
+	PropFacing(TEXT("extinguisher"), 14.45f, 10.4f, 0, 0);
+	PropFacing(TEXT("wetfloor"), 15.7f, 18.6f, 0, 250);
+	PropFacing(TEXT("extinguisher"), 14.45f, 12.0f, F2, 0);
 	// workshop
-	Prop(TEXT("barrel"), 38.9f, 8.9f, 0, 0, ECESurf::Metal); Prop(TEXT("barrel"), 39.3f, 8.1f, 0, 40, ECESurf::Metal);
-	Prop(TEXT("box"), 34.1f, 1.4f, 0, 0, ECESurf::Crate); Prop(TEXT("box"), 34.8f, 1.3f, 0, 40, ECESurf::Crate);
-	Prop(TEXT("table"), 31.2f, 1.6f, 0, 0, ECESurf::Wood);
+	Prop(TEXT("barrel"), 38.9f, 8.9f, 0, 0, Mt); Prop(TEXT("barrel_red"), 39.3f, 8.1f, 0, 40, Mt);
+	Prop(TEXT("box"), 34.1f, 1.4f, 0, 0, Cr); Prop(TEXT("box"), 34.8f, 1.3f, 0, 40, Cr);
+	Prop(TEXT("dresser"), 31.2f, 1.6f, 0, 0, ECESurf::Wood);
+	PropFacing(TEXT("stool"), 21.0f, 1.9f, 0, 60);
+	WallProp(TEXT("powerbox"), 25.0f, 0.15f, 1.1f, 90);
+	PropFacing(TEXT("extinguisher"), 17.5f, 9.4f, 0, 45);
 	// offices & upstairs
-	Prop(TEXT("box"), 23.2f, 19.0f, 0, 0, ECESurf::Crate); Prop(TEXT("box"), 22.6f, 19.1f, 0, 25, ECESurf::Crate);
-	Prop(TEXT("chair"), 18.8f, 25.9f, 0, 180, ECESurf::Wood); Prop(TEXT("chair"), 21.8f, 25.9f, 0, 170, ECESurf::Wood);
-	Prop(TEXT("chair"), 25.8f, 21.9f, 0, 185, ECESurf::Wood);
-	Prop(TEXT("box"), 30.3f, 1.0f, F2, 0, ECESurf::Crate); Prop(TEXT("box"), 29.7f, 1.1f, F2, 30, ECESurf::Crate);
-	Prop(TEXT("table"), 27.5f, 25.0f, F2, 90, ECESurf::Wood);
-	Prop(TEXT("chair"), 27.0f, 19.4f, F2, 0, ECESurf::Wood); Prop(TEXT("chair"), 20.0f, 23.6f, F2, 180, ECESurf::Wood);
-	// exterior cover
-	Prop(TEXT("barrel"), -1.2f, 12.5f, 0, 0, ECESurf::Metal); Prop(TEXT("barrel"), -1.3f, 13.4f, 0, 20, ECESurf::Metal); Prop(TEXT("barrel"), -1.2f, 15.0f, 0, 60, ECESurf::Metal);
-	Prop(TEXT("crate"), 12.f, -5.5f, 0, 10, ECESurf::Crate);
+	Prop(TEXT("box"), 23.2f, 19.0f, 0, 0, Cr); Prop(TEXT("box"), 22.6f, 19.1f, 0, 25, Cr);
+	PropFacing(TEXT("chair"), 18.8f, 25.9f, 0, 270); PropFacing(TEXT("chair"), 21.8f, 25.95f, 0, 255);
+	PropFacing(TEXT("chair"), 25.8f, 21.9f, 0, 280); PropFacing(TEXT("chair"), 29.2f, 25.5f, 0, 265);
+	Prop(TEXT("box"), 30.3f, 1.0f, F2, 0, Cr); Prop(TEXT("box"), 29.7f, 1.1f, F2, 30, Cr);
+	PropFacing(TEXT("chair"), 20.4f, 4.1f, F2, 270); PropFacing(TEXT("chair"), 26.4f, 4.1f, F2, 285); PropFacing(TEXT("chair"), 20.6f, 8.1f, F2, 260);
+	PropFacing(TEXT("chair"), 20.0f, 23.7f, F2, 270);
+	PropFacing(TEXT("monobloc"), 25.4f, 20.7f, F2, 0); PropFacing(TEXT("monobloc"), 28.6f, 20.9f, F2, 180); PropFacing(TEXT("monobloc"), 27.1f, 22.2f, F2, 265);
+	// exterior
+	Prop(TEXT("barrel"), -1.2f, 12.5f, 0, 0, Mt); Prop(TEXT("barrel_blue"), -1.3f, 13.4f, 0, 20, Mt); Prop(TEXT("barrel"), -1.2f, 15.0f, 0, 60, Mt);
+	Prop(TEXT("crate"), 12.f, -5.5f, 0, 10, Cr);
+	PropFacing(TEXT("trashcan"), 8.6f, -3.4f, 0, 270);
+	PropFacing(TEXT("tyre"), 12.0f, -0.26f, 0, 270); PropFacing(TEXT("tyre"), 12.75f, -0.28f, 0, 262);
+	WallProp(TEXT("aircon"), 10.0f, -0.15f, 3.0f, 270); WallProp(TEXT("aircon"), 40.15f, 21.0f, 3.2f, 0);
+	WallProp(TEXT("walllamp"), -0.15f, 7.0f, 2.95f, 180); WallProp(TEXT("walllamp"), -0.15f, 21.0f, 2.95f, 180);
+	WallProp(TEXT("walllamp"), 28.5f, -0.15f, 2.35f, 270); WallProp(TEXT("walllamp"), 40.15f, 12.5f, 2.35f, 0);
+	WallProp(TEXT("utilbox"), 16.5f, 28.15f, 0, 90);
 }
 
 void ACELevelBuilder::Zone(const TCHAR* Name, float X0, float Y0, float Z0, float X1, float Y1, float Z1, ECEReverb R, bool bIndoor)
@@ -309,7 +432,7 @@ void ACELevelBuilder::BuildGeometry()
 	const ECESurf Ext = ECESurf::Concrete, Blk = ECESurf::Block, Dry = ECESurf::Drywall;
 
 	// ---- ground, slabs, roof ----
-	Box(-45, -40, -0.4f, 85, 70, -0.02f, ECESurf::Asphalt);
+	Box(-420, -420, -0.4f, 460, 450, -0.02f, ECESurf::Asphalt);   // runs out to the haze
 	Box(-8, -2, -0.3f, 0, 30, 0.0f, ECESurf::Concrete);           // west loading apron
 	Box(0, 0, -0.3f, 40, 28, 0.0f, ECESurf::Floor);                 // ground floor slab
 	Box(14, 0, C1, 32.5f, 28, F2, ECESurf::Floor);                  // upper slab (stair hole at 32.5-37.2 x 23.9-26.1)
@@ -397,7 +520,7 @@ void ACELevelBuilder::BuildGeometry()
 	Box(8.4f, 25.62f, 0, 8.58f, 25.8f, 3.4f, ECESurf::Metal);
 	Rail(11.2f, 0.15f, 11.2f, 25.6f, F2);
 	Rail(8.2f, 25.6f, 11.2f, 25.6f, F2);
-	Box(3, 12, 0, 5.4f, 18, 2.6f, ECESurf::Metal);                    // container
+	Box(3, 12, 0, 5.4f, 18, 2.6f, ECESurf::Container);                // container
 	Box(2.98f, 12, 2.55f, 5.42f, 18, 2.62f, ECESurf::Paint, ECECol::None);
 	Box(8, 4, 0, 9.2f, 5.2f, 1.2f, ECESurf::Crate); Box(8, 5.3f, 0, 9.2f, 6.5f, 1.2f, ECESurf::Crate);
 	Box(8.1f, 4.2f, 1.2f, 9.1f, 5.1f, 2.2f, ECESurf::Crate);
@@ -407,46 +530,58 @@ void ACELevelBuilder::BuildGeometry()
 	Box(5.3f, 7.8f, 0, 5.5f, 9.0f, 2.4f, ECESurf::Gunmetal);           // mast
 	Box(1.0f, 1.0f, 0, 1.6f, 9.6f, 0.012f, ECESurf::Hazard, ECECol::None);   // floor markings
 	Box(1.0f, 18.4f, 0, 1.6f, 23.6f, 0.012f, ECESurf::Hazard, ECECol::None);
-	for (float Y : {1.f, 4.5f}) Box(0.3f, Y, 0, 1.0f, Y + 2.5f, 2.6f, ECESurf::Metal); // pallet racking
+	for (float Y : {1.f, 4.5f}) Dress(TEXT("shelves"), 0.3f, Y, 0, 1.0f, Y + 2.5f, 2.6f, ECESurf::Metal, 0); // pallet racking
 	Box(0.3f, 1.0f, 1.2f, 1.0f, 7.0f, 1.25f, ECESurf::Hazard);
 
 	// ---- service corridor ----
-	Box(16.35f, 6, 0, 16.9f, 9, 1.9f, ECESurf::Metal);                 // lockers
+	Dress(TEXT("utilbox_green"), 16.35f, 6, 0, 16.9f, 9, 1.9f, ECESurf::Metal, 180);   // switchgear cabinets
 	Box(14.2f, 0.2f, 2.85f, 14.42f, 27.8f, 3.05f, ECESurf::Gunmetal, ECECol::None); // pipe run
 	Box(14.15f, 0.2f, 6.35f, 14.4f, 27.8f, 6.5f, ECESurf::Gunmetal, ECECol::None);
-	Box(16.4f, 16, F2, 16.9f, 19, F2 + 1.9f, ECESurf::Metal);          // upper lockers
+	Dress(TEXT("utilbox"), 16.4f, 16, F2, 16.9f, 19, F2 + 1.9f, ECESurf::Metal, 180);
 
 	// ---- workshop ----
-	Box(19, 0.4f, 0, 23, 1.2f, 0.9f, ECESurf::Metal); Box(19, 0.4f, 0.9f, 23, 1.2f, 0.95f, ECESurf::Wood);
+	{
+		const float Top = Dress(TEXT("desk"), 19, 0.4f, 0, 23, 1.2f, 0.95f, ECESurf::Metal, 90);   // workbench
+		Prop(TEXT("toolchest"), 19.7f, 0.75f, Top, 5, ECESurf::Metal, 1.f, false);
+	}
 	Box(24.6f, 4, 0, 27.2f, 5.2f, 1.4f, ECESurf::Paint);               // lathe
 	Box(30, 6.3f, 0, 32, 8.3f, 1.8f, ECESurf::Paint);                  // press
-	Box(33, 0.2f, 0, 38, 0.8f, 2.2f, ECESurf::Metal);                  // shelving
-	Box(35.4f, 3.8f, 0, 36.4f, 4.6f, 1.0f, ECESurf::Hazard);            // tool cart
+	Dress(TEXT("shelves"), 33, 0.2f, 0, 38, 0.8f, 2.2f, ECESurf::Metal, 90);          // shelving
+	Dress(TEXT("toolchest"), 35.4f, 3.8f, 0, 36.4f, 4.6f, 1.0f, ECESurf::Metal, 90, 1.5f);   // roller cabinet
 	Box(28.4f, 4.6f, 0, 28.9f, 5.1f, C1, ECESurf::Concrete);           // column
 	Box(20, 6.8f, 0, 21.2f, 8.0f, 1.1f, ECESurf::Crate);
 
 	// ---- security desk ----
-	Box(18.6f, 12, 0, 19.4f, 16, 1.05f, ECESurf::Wood);
-	Box(18.75f, 12.5f, 1.05f, 19.15f, 13.2f, 1.45f, ECESurf::Polymer, ECECol::None);
-	Box(18.75f, 14.6f, 1.05f, 19.15f, 15.3f, 1.45f, ECESurf::Polymer, ECECol::None);
+	{
+		const float Top = Dress(TEXT("desk"), 18.6f, 12, 0, 19.4f, 16, 1.05f, ECESurf::Wood, 180);
+		if (PropMesh(TEXT("tv"))) { PropFacing(TEXT("tv"), 19.0f, 12.85f, Top, 180); PropFacing(TEXT("tv"), 19.0f, 14.95f, Top, 180); }
+		else
+		{
+			Box(18.75f, 12.5f, 1.05f, 19.15f, 13.2f, 1.45f, ECESurf::Polymer, ECECol::None);
+			Box(18.75f, 14.6f, 1.05f, 19.15f, 15.3f, 1.45f, ECESurf::Polymer, ECECol::None);
+		}
+	}
 
 	// ---- comms (objective) ----
-	Box(23.4f, 11, 0, 24.2f, 13, 2.0f, ECESurf::Metal); Box(23.4f, 15.2f, 0, 24.2f, 17.0f, 2.0f, ECESurf::Metal);
-	Box(29.2f, 11.2f, 0, 30.0f, 13.4f, 2.0f, ECESurf::Metal);
-	Box(26, 13.5f, 0, 28, 14.6f, 0.9f, ECESurf::Metal);                // console
-	Box(26.2f, 13.7f, 0.9f, 27.8f, 13.9f, 1.4f, ECESurf::Polymer, ECECol::None);
+	Dress(TEXT("utilbox"), 23.4f, 11, 0, 24.2f, 13, 2.0f, ECESurf::Metal, 0); Dress(TEXT("utilbox"), 23.4f, 15.2f, 0, 24.2f, 17.0f, 2.0f, ECESurf::Metal, 0);
+	Dress(TEXT("utilbox_green"), 29.2f, 11.2f, 0, 30.0f, 13.4f, 2.0f, ECESurf::Metal, 180);
+	{
+		const float Top = Dress(TEXT("desk"), 26, 13.5f, 0, 28, 14.6f, 0.9f, ECESurf::Metal, 90);   // console
+		if (PropMesh(TEXT("tv"))) { PropFacing(TEXT("tv"), 26.55f, 13.95f, Top, 90); PropFacing(TEXT("tv"), 27.45f, 13.95f, Top, 90); }
+		else Box(26.2f, 13.7f, 0.9f, 27.8f, 13.9f, 1.4f, ECESurf::Polymer, ECECol::None);
+	}
 	Box(22.2f, 10.2f, 2.6f, 30.8f, 10.5f, 2.7f, ECESurf::Gunmetal, ECECol::None); // cable tray
 	Box(25.0f, 13.0f, 0, 29.0f, 15.1f, 0.012f, ECESurf::Hazard, ECECol::None);   // plant zone floor marking
 
 	// ---- east hall ----
 	Box(37, 14.5f, 0, 38.2f, 15.7f, 1.2f, ECESurf::Crate);
-	Box(39.2f, 15, 0, 39.85f, 17, 2.0f, ECESurf::Metal);
+	Dress(TEXT("utilbox_green"), 39.2f, 15, 0, 39.85f, 17, 2.0f, ECESurf::Metal, 180);
 
 	// ---- offices ----
-	Box(18, 24, 0, 19.6f, 25.2f, 0.76f, ECESurf::Wood); Box(21, 24, 0, 22.6f, 25.2f, 0.76f, ECESurf::Wood);
-	Box(23.3f, 26, 0, 23.85f, 27.8f, 1.3f, ECESurf::Paint);
-	Box(25, 20, 0, 26.6f, 21.2f, 0.76f, ECESurf::Wood); Box(28.5f, 23.4f, 0, 30, 24.8f, 0.76f, ECESurf::Wood);
-	Box(30.4f, 19, 0, 30.85f, 22, 2.0f, ECESurf::Wood);
+	Dress(TEXT("desk"), 18, 24, 0, 19.6f, 25.2f, 0.76f, ECESurf::Wood, 90); Dress(TEXT("desk"), 21, 24, 0, 22.6f, 25.2f, 0.76f, ECESurf::Wood, 90);
+	Dress(TEXT("cabinet"), 23.3f, 26, 0, 23.85f, 27.8f, 1.3f, ECESurf::Paint, 180);
+	Dress(TEXT("desk"), 25, 20, 0, 26.6f, 21.2f, 0.76f, ECESurf::Wood, 90); Dress(TEXT("desk"), 28.5f, 23.4f, 0, 30, 24.8f, 0.76f, ECESurf::Wood, 90);
+	Dress(TEXT("shelves"), 30.4f, 19, 0, 30.85f, 22, 2.0f, ECESurf::Wood, 180);
 
 	// ---- east stairwell ----
 	Stairs(33.f, 24.f, 26.f, 1.f, 14, ECESurf::Concrete);
@@ -455,14 +590,14 @@ void ACELevelBuilder::BuildGeometry()
 	Rail(32.5f, 23.9f, 32.5f, 26.1f, F2);
 
 	// ---- upper floor props ----
-	Box(19, 2.5f, F2, 22, 3.4f, F2 + 0.76f, ECESurf::Wood); Box(19, 6.5f, F2, 22, 7.4f, F2 + 0.76f, ECESurf::Wood);
-	Box(25, 2.5f, F2, 28, 3.4f, F2 + 0.76f, ECESurf::Wood);
-	Box(27.5f, 9, F2, 30.5f, 9.6f, F2 + 2.0f, ECESurf::Metal);
-	Box(19, 22, F2, 21, 23, F2 + 0.76f, ECESurf::Wood);
-	Box(22.5f, 25, F2, 23.8f, 27, F2 + 0.7f, ECESurf::Olive);
-	Box(26, 20, F2, 28, 21.5f, F2 + 0.75f, ECESurf::Wood);
-	Box(24.2f, 25, F2, 24.8f, 27.8f, F2 + 0.9f, ECESurf::Paint);
-	Box(30.2f, 15, F2, 30.85f, 15.8f, F2 + 1.8f, ECESurf::Paint);
+	Dress(TEXT("desk"), 19, 2.5f, F2, 22, 3.4f, F2 + 0.76f, ECESurf::Wood, 90); Dress(TEXT("desk"), 19, 6.5f, F2, 22, 7.4f, F2 + 0.76f, ECESurf::Wood, 90);
+	Dress(TEXT("desk"), 25, 2.5f, F2, 28, 3.4f, F2 + 0.76f, ECESurf::Wood, 90);
+	Dress(TEXT("shelves"), 27.5f, 9, F2, 30.5f, 9.6f, F2 + 2.0f, ECESurf::Metal, 270);
+	Dress(TEXT("desk"), 19, 22, F2, 21, 23, F2 + 0.76f, ECESurf::Wood, 90);
+	Dress(TEXT("sofa"), 22.5f, 25, F2, 23.8f, 27, F2 + 0.7f, ECESurf::Olive, 180);
+	Dress(TEXT("desk"), 26, 20, F2, 28, 21.5f, F2 + 0.75f, ECESurf::Wood, 90);
+	Dress(TEXT("dresser"), 24.2f, 25, F2, 24.8f, 27.8f, F2 + 0.9f, ECESurf::Paint, 0);
+	Dress(TEXT("utilbox"), 30.2f, 15, F2, 30.85f, 15.8f, F2 + 1.8f, ECESurf::Paint, 180);
 	Box(33, 2, F2, 36, 6, F2 + 1.8f, ECESurf::Metal);                  // HVAC
 	Box(36.5f, 10, F2, 39.5f, 13, F2 + 1.5f, ECESurf::Metal);
 	Box(31.2f, 0.4f, 6.2f, 39.8f, 0.7f, 6.45f, ECESurf::Gunmetal, ECECol::None);
@@ -478,21 +613,21 @@ void ACELevelBuilder::BuildGeometry()
 	// ---- exterior cover & dressing ----
 	Box(-9, -3, 0, -6.5f, 3, 3.0f, ECESurf::Paint);                     // box truck
 	Box(-9, 3, 0, -6.6f, 4.8f, 2.4f, ECESurf::Paint);
-	Box(-15, 8, 0, -12.6f, 14, 2.6f, ECESurf::Metal);                  // containers
-	Box(-11, 20, 0, -5, 22.4f, 2.6f, ECESurf::Metal);
-	Box(18, 36, 0, 24, 38.4f, 2.6f, ECESurf::Metal);
-	Box(30, 36, 0, 32.4f, 42, 2.6f, ECESurf::Metal);
-	Box(20, -8, 0, 24, -7.4f, 0.85f, ECESurf::Concrete);               // jersey barriers
-	Box(31, -10, 0, 35, -9.4f, 0.85f, ECESurf::Concrete);
-	Box(10, -4, 0, 12, -2.8f, 1.4f, ECESurf::Olive);                   // dumpster
+	Box(-15, 8, 0, -12.6f, 14, 2.6f, ECESurf::Container);              // containers
+	Box(-11, 20, 0, -5, 22.4f, 2.6f, ECESurf::ContainerB);
+	Box(18, 36, 0, 24, 38.4f, 2.6f, ECESurf::Container);
+	Box(30, 36, 0, 32.4f, 42, 2.6f, ECESurf::ContainerB);
+	Dress(TEXT("barrier"), 20, -8, 0, 24, -7.4f, 0.85f, ECESurf::Concrete, 90);        // road barriers
+	Dress(TEXT("barrier_b"), 31, -10, 0, 35, -9.4f, 0.85f, ECESurf::Concrete, 90);
+	Box(10, -4, 0, 12, -2.8f, 1.4f, ECESurf::Metal);                   // dumpster
 	Box(44, 9, 0, 46.5f, 11.5f, 2.0f, ECESurf::Paint);                 // generator
-	Box(44, 16, 0, 48, 16.6f, 0.85f, ECESurf::Concrete);
-	Box(5, 31, 0, 7.4f, 37, 2.6f, ECESurf::Metal);
-	// perimeter fence (visual) + invisible boundary
-	Box(-30, -28, 0, -29.9f, 56, 2.6f, ECESurf::Grate, ECECol::None);
-	Box(70, -28, 0, 70.1f, 56, 2.6f, ECESurf::Grate, ECECol::None);
-	Box(-30, -28, 0, 70, -27.9f, 2.6f, ECESurf::Grate, ECECol::None);
-	Box(-30, 56, 0, 70, 56.1f, 2.6f, ECESurf::Grate, ECECol::None);
+	Dress(TEXT("barrier"), 44, 16, 0, 48, 16.6f, 0.85f, ECESurf::Concrete, 90);
+	Box(5, 31, 0, 7.4f, 37, 2.6f, ECESurf::Container);
+	// perimeter wall (visual) + invisible boundary
+	Box(-30.2f, -28.2f, 0, -29.9f, 56.2f, 2.8f, ECESurf::Concrete, ECECol::None);
+	Box(70, -28.2f, 0, 70.3f, 56.2f, 2.8f, ECESurf::Concrete, ECECol::None);
+	Box(-30.2f, -28.2f, 0, 70.3f, -27.9f, 2.8f, ECESurf::Concrete, ECECol::None);
+	Box(-30.2f, 56, 0, 70.3f, 56.3f, 2.8f, ECESurf::Concrete, ECECol::None);
 	Box(-30.5f, -28.5f, 0, -29.9f, 56.5f, 8, ECESurf::Concrete, ECECol::HiddenPawn);
 	Box(70, -28.5f, 0, 70.6f, 56.5f, 8, ECESurf::Concrete, ECECol::HiddenPawn);
 	Box(-30.5f, -28.5f, 0, 70.6f, -27.9f, 8, ECESurf::Concrete, ECECol::HiddenPawn);
@@ -507,8 +642,36 @@ void ACELevelBuilder::BuildGeometry()
 void ACELevelBuilder::BuildLighting()
 {
 	// ---- sky / sun / exposure ----
-	USkyAtmosphereComponent* Sky = NewObject<USkyAtmosphereComponent>(this);
-	Sky->SetupAttachment(RootComponent); Sky->RegisterComponent(); AddInstanceComponent(Sky);
+	UTextureCube* Hdri = LoadObject<UTextureCube>(nullptr, TEXT("/Game/Photoreal/HDRI/HDRI_Sky.HDRI_Sky"), nullptr, LOAD_NoWarn | LOAD_Quiet);
+	UMaterialInterface* SkyMat = LoadObject<UMaterialInterface>(nullptr, TEXT("/Game/Photoreal/Materials/M_CE_Sky.M_CE_Sky"), nullptr, LOAD_NoWarn | LOAD_Quiet);
+	const bool bDome = Hdri && SkyMat;
+	if (bDome)
+	{
+		// the scanned sky is also what you see: a dome showing the same HDRI that lights the scene
+		UStaticMeshComponent* Dome = NewObject<UStaticMeshComponent>(this);
+		Dome->SetupAttachment(RootComponent);
+		Dome->SetMobility(EComponentMobility::Static);
+		Dome->SetStaticMesh(UCEAssets::Get(this)->Sphere);
+		Dome->SetMaterial(0, SkyMat);
+		Dome->SetRelativeScale3D(FVector(30000.f));   // 15 km radius
+		Dome->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		Dome->SetCastShadow(false);
+		Dome->bAffectDistanceFieldLighting = false;
+		Dome->bAffectDynamicIndirectLighting = false;
+		Dome->RegisterComponent(); AddInstanceComponent(Dome);
+	}
+	else
+	{
+		USkyAtmosphereComponent* Sky = NewObject<USkyAtmosphereComponent>(this);
+		Sky->SetupAttachment(RootComponent); Sky->RegisterComponent(); AddInstanceComponent(Sky);
+	}
+	UExponentialHeightFogComponent* Fog = NewObject<UExponentialHeightFogComponent>(this);
+	Fog->SetupAttachment(RootComponent);
+	Fog->FogDensity = UCETuning::Get()->FogDensity;
+	Fog->FogHeightFalloff = 0.12f;
+	Fog->FogInscatteringLuminance = FLinearColor(0.34f, 0.37f, 0.4f);
+	Fog->StartDistance = 1200.f;
+	Fog->RegisterComponent(); AddInstanceComponent(Fog);
 
 	UDirectionalLightComponent* Sun = NewObject<UDirectionalLightComponent>(this);
 	Sun->SetupAttachment(RootComponent);
@@ -517,14 +680,14 @@ void ACELevelBuilder::BuildLighting()
 	Sun->bUseTemperature = true; Sun->Temperature = 5200.f;
 	Sun->SetWorldRotation(FRotator(-24.f, 132.f, 0.f));
 	Sun->RegisterComponent(); AddInstanceComponent(Sun);
-	Sun->SetAtmosphereSunLight(true);
+	Sun->SetAtmosphereSunLight(!bDome);
 
 	USkyLightComponent* SkyL = NewObject<USkyLightComponent>(this);
 	SkyL->SetupAttachment(RootComponent);
 	SkyL->SetMobility(EComponentMobility::Movable);
 	SkyL->bRealTimeCapture = true;
 	SkyL->Intensity = UCETuning::Get()->SkyLightIntensity;
-	if (UTextureCube* Hdri = LoadObject<UTextureCube>(nullptr, TEXT("/Game/Photoreal/HDRI/HDRI_Sky.HDRI_Sky"), nullptr, LOAD_NoWarn | LOAD_Quiet))
+	if (Hdri)
 	{
 		// scanned overcast sky (Poly Haven, CC0) drives ambient light and reflections
 		SkyL->bRealTimeCapture = false;
@@ -554,12 +717,12 @@ void ACELevelBuilder::BuildLighting()
 	S.bOverride_FilmGrainIntensity = true;      S.FilmGrainIntensity = 0.06f;
 	S.bOverride_ColorSaturation = true;         S.ColorSaturation = FVector4(0.86f, 0.88f, 0.9f, 1.f);
 	S.bOverride_ColorContrast = true;           S.ColorContrast = FVector4(1.04f, 1.04f, 1.04f, 1.f);
-	S.bOverride_WhiteTemp = true;               S.WhiteTemp = 6300.f;
+	S.bOverride_WhiteTemp = true;               S.WhiteTemp = UCETuning::Get()->WhiteBalance;
 	PP->RegisterComponent(); AddInstanceComponent(PP);
 
 	// ---- interior practical lights (values are in candela; exposure adapts between in/out) ----
 	const float Fl = 5200.f;   // cool fluorescent
-	const float Wm = 3600.f;   // warm office
+	const float Wm = 4200.f;   // warm office
 	// loading bay high-bays
 	for (float X : {3.5f, 9.5f}) for (float Y : {4.f, 14.f, 24.f}) Light(X, Y, 6.25f, 14.f, 16.f, 4200.f, 0.6f, true);
 	// GF corridor

@@ -14,7 +14,7 @@ import json, os, sys, time, urllib.request, urllib.error
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 OUT = os.path.join(ROOT, "SourceArt", "PolyHaven")
 API = "https://api.polyhaven.com"
-UA = {"User-Agent": "ColdEntry-AssetFetch/1.0 (UE5 vertical slice; CC0 Poly Haven assets)"}
+UA = {"User-Agent": "polyhaven-asset-fetch/1.0"}
 
 
 def get_json(url):
@@ -119,23 +119,51 @@ def fetch():
         p = os.path.join(OUT, hid, f"{hid}_{r}.hdr")
         print("   ", download(url, p))
         result["hdri"] = p
-    for key, mid in man.get("models", {}).items():
-        if not mid:
+    # Models: the FBX alone, plus three small JPGs per material (base colour, DirectX normal, AO/rough/metal).
+    # A model with several materials publishes its maps as "<part>_diff", "<part>_nor_dx", "<part>_arm".
+    for key, spec in man.get("models", {}).items():
+        if not spec:
             continue
-        print(f"[model] {key} <- {mid}")
-        files = get_json(f"{API}/files/{mid}")
+        mid, mres = (spec, res) if isinstance(spec, str) else (spec["id"], spec.get("res", res))
+        print(f"[model] {key} <- {mid} ({mres})")
+        try:
+            files = get_json(f"{API}/files/{mid}")
+        except Exception as e:
+            print("    FAILED to look up", mid, e)
+            continue
         if "fbx" not in files:
             print("    no fbx, skipped")
             continue
-        tree = files["fbx"]
-        r = res if res in tree else sorted(tree.keys(), key=lambda s: int(s.rstrip("k")))[0]
-        node = tree[r]["fbx"]
+
+        def at(tree, want):
+            return tree[want] if want in tree else tree[sorted(tree.keys(), key=lambda s: int(s.rstrip("k")))[0]]
+
         base = os.path.join(OUT, mid)
-        fbx = os.path.join(base, os.path.basename(node["url"].split("?")[0]))
+        node = at(files["fbx"], mres)["fbx"]
+        fbx = os.path.join(base, f"{mid}.fbx")
         print("    fbx", download(node["url"], fbx))
-        for rel, inc in node.get("include", {}).items():
-            print("    tex", rel, download(inc["url"], os.path.join(base, rel)))
-        result["models"][key] = {"id": mid, "fbx": fbx}
+        groups = {}
+        if "Diffuse" in files:
+            groups[""] = {"BaseColor": "Diffuse", "Normal": "nor_dx", "ARM": "arm"}
+        for k in files:
+            if k.endswith("_diff"):
+                g = k[:-5]
+                groups[g] = {"BaseColor": k, "Normal": g + "_nor_dx", "ARM": g + "_arm"}
+        mats = {}
+        for g, maps in groups.items():
+            entry = {}
+            for chan, mapname in maps.items():
+                if mapname not in files:
+                    continue
+                fmt = at(files[mapname], mres)
+                ext = "jpg" if "jpg" in fmt else ("png" if "png" in fmt else None)
+                if not ext:
+                    continue
+                p = os.path.join(base, f"{mid}{'_' + g if g else ''}_{chan}.{ext}")
+                print("   ", g or "main", chan, download(fmt[ext]["url"], p))
+                entry[chan] = p
+            mats[g] = entry
+        result["models"][key] = {"id": mid, "fbx": fbx, "materials": mats}
     with open(os.path.join(OUT, "fetched.json"), "w", encoding="utf-8") as f:
         json.dump(result, f, indent=1)
     print("DONE ->", os.path.join(OUT, "fetched.json"))

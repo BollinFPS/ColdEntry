@@ -38,6 +38,10 @@ public:
 	UPROPERTY() TObjectPtr<UStaticMesh> Cylinder;
 
 	UMaterialInterface* Surf(ECESurf S);
+	// Procedural variant for parts that move (characters, gadgets): the scanned surfaces are projected in
+	// world space, so on a moving part the texture would slide across it.
+	UMaterialInterface* SurfMoving(ECESurf S);
+	UMaterialInterface* WeaponMaterial(bool bPistol);   // dark finish for the template weapons; null if unavailable
 	UMaterialInterface* Emissive(const FLinearColor& Color, float Intensity);
 	UMaterialInstanceDynamic* MakeTranslucent(const FLinearColor& Color, float Opacity, bool bLit = true);
 	UMaterialInterface* DecalMaterial(bool bScorch);
@@ -58,6 +62,8 @@ private:
 	UPROPERTY() TObjectPtr<UMaterial> MasterDecal;
 	UPROPERTY() TObjectPtr<UMaterialInterface> Fallback;
 	UPROPERTY() TArray<TObjectPtr<UMaterialInterface>> SurfMats;
+	UPROPERTY() TArray<TObjectPtr<UMaterialInterface>> ProcMats;
+	UPROPERTY() TObjectPtr<UMaterialInterface> WeaponMats[2];
 	UPROPERTY() TMap<uint32, TObjectPtr<UMaterialInterface>> EmissiveCache;
 	UPROPERTY() TArray<TObjectPtr<UMaterialInterface>> DecalMats;
 };

@@ -10,9 +10,11 @@ class ACEDoor;
 class ACEBreakable;
 class UInstancedStaticMeshComponent;
 class UPointLightComponent;
+class UStaticMesh;
+class UStaticMeshComponent;
 
 UENUM()
-enum class ECECol : uint8 { Solid, PawnOnly, None, HiddenPawn };
+enum class ECECol : uint8 { Solid, PawnOnly, None, HiddenPawn, HiddenSolid };
 
 UENUM()
 enum class ECEOpen : uint8 { Open, Door, Breach, Glass, Barricade };
@@ -81,6 +83,8 @@ public:
 	ECEPen PenOf(const UPrimitiveComponent* C) const;
 	ECEStep StepOf(const UPrimitiveComponent* C) const;
 	void ResetEntities();
+	// Review aid for the shot tour: one of every scanned prop in a row, unrotated. Returns their positions.
+	TArray<FVector> SpawnPropLineup(const FVector& StartCm, const FVector& StepCm);
 	int32 NearestNode(const FVector& P, bool bRequireSight = true) const;
 	// EdgeCost returns < 0 for impassable.
 	bool FindPath(int32 From, int32 To, TFunctionRef<float(const FCENavEdge&)> EdgeCost, TArray<int32>& OutNodes) const;
@@ -118,7 +122,12 @@ private:
 	void Rail(float X0, float Y0, float X1, float Y1, float Z);
 	void Stairs(float X0, float Y0, float Y1, float Dir, int32 Steps, ECESurf S); // along X
 	void Light(float X, float Y, float Z, float Candela, float RadiusM, float TempK, float LengthM, bool bFixture, bool bShadows = true);
-	void Prop(const TCHAR* Key, float X, float Y, float Z, float Yaw, ECESurf Surf, float Scale = 1.f);
+	UStaticMesh* PropMesh(const TCHAR* Key) const;
+	UStaticMeshComponent* AddPropComp(UStaticMesh* Mesh, const FVector& Loc, float Yaw, const FVector& Scale, bool bCollide, ECESurf Surf);
+	void Prop(const TCHAR* Key, float X, float Y, float Z, float Yaw, ECESurf Surf, float Scale = 1.f, bool bCollide = true);
+	void PropFacing(const TCHAR* Key, float X, float Y, float Z, float Front, float Scale = 1.f);
+	void WallProp(const TCHAR* Key, float X, float Y, float Z, float Front, float Scale = 1.f);
+	float Dress(const TCHAR* Key, float X0, float Y0, float Z0, float X1, float Y1, float Z1, ECESurf S, float Front, float MaxScale = 1.35f);
 	void BuildProps();
 	void Zone(const TCHAR* Name, float X0, float Y0, float Z0, float X1, float Y1, float Z1, ECEReverb R, bool bIndoor = true);
 	int32 Node(float X, float Y, float Z);

@@ -1,65 +1,71 @@
 {
-  "_note": "Poly Haven (CC0) asset IDs per texture slot, and how each game surface uses them. tile = cm per texture repeat (match the scan's real width). tint multiplies albedo (linear).",
+  "_note": "Poly Haven (CC0) asset IDs per texture slot, and how each game surface uses them. tile = cm per texture repeat (match the scan's real width). tint multiplies albedo (linear). models: key -> asset id, or {id, res} to override the resolution for that prop. antitile blends in a second, larger-scale sample to hide repetition on big surfaces.",
   "resolution": "2k",
-  "hdri": "schadowplatz",
+  "hdri": "kloofendal_overcast_puresky",
   "hdri_resolution": "4k",
   "textures": {
     "ext_concrete": "concrete_wall_008",
-    "roof_concrete": "concrete_layers",
-    "int_plaster": "plastered_wall",
-    "floor": "garage_floor",
+    "int_panel": "concrete_wall_004",
+    "floor": "concrete_floor_worn_001",
     "drywall": "beige_wall_001",
+    "plaster": "white_plaster_02",
     "wood": "fine_grained_wood",
-    "door_wood": "wood_peeling_paint_weathered",
-    "metal_painted": "rusty_metal_03",
-    "steel": "rust_coarse_01",
+    "metal_green": "green_metal_rust",
+    "metal_blue": "blue_metal_plate",
+    "steel_plate": "metal_plate_02",
+    "tread_plate": "metal_plate",
+    "container": "container_side",
+    "container_red": "rusty_painted_metal",
     "crate": "raw_plank_wall",
-    "ground": "concrete_floor_03"
+    "asphalt": "asphalt_02"
   },
   "surfaces": {
     "Concrete": {
       "tex": "ext_concrete",
       "tile": 220,
       "tint": [
-        1.0,
-        1.0,
-        1.0
-      ],
-      "rough": 1.0,
-      "grime": 0.6,
-      "macro": 0.6
-    },
-    "Block": {
-      "tex": "int_plaster",
-      "tile": 200,
-      "tint": [
-        0.82,
-        0.86,
-        0.82
-      ],
-      "rough": 1.0,
-      "grime": 0.7,
-      "macro": 0.5
-    },
-    "Floor": {
-      "tex": "floor",
-      "tile": 190,
-      "tint": [
         0.9,
         0.9,
         0.9
       ],
+      "rough": 1.0,
+      "grime": 0.7,
+      "macro": 0.6,
+      "antitile": 0.8
+    },
+    "Block": {
+      "tex": "int_panel",
+      "tile": 300,
+      "tint": [
+        0.86,
+        0.88,
+        0.86
+      ],
+      "rough": 1.0,
+      "grime": 0.7,
+      "macro": 0.5,
+      "antitile": 0.4
+    },
+    "Floor": {
+      "tex": "floor",
+      "tile": 260,
+      "tint": [
+        0.8,
+        0.8,
+        0.8
+      ],
       "rough": 0.95,
       "grime": 0.0,
-      "macro": 0.7
+      "macro": 0.7,
+      "antitile": 0.9
     },
     "Drywall": {
       "tex": "drywall",
       "tile": 300,
       "tint": [
-        0.92,
-        0.91,
-        0.87
+        0.82,
+        0.84,
+        0.82
       ],
       "rough": 1.0,
       "grime": 0.5,
@@ -78,43 +84,82 @@
       "macro": 0.3
     },
     "Metal": {
-      "tex": "metal_painted",
-      "tile": 140,
+      "tex": "metal_green",
+      "tile": 200,
       "tint": [
-        0.6,
-        0.7,
-        0.75
+        0.75,
+        0.8,
+        0.78
       ],
-      "rough": 0.95,
-      "metal": 0.25,
-      "grime": 0.3,
+      "rough": 1.0,
+      "metal": 0.35,
+      "grime": 0.25,
       "macro": 0.4
     },
-    "Steel": {
-      "tex": "steel",
-      "tile": 150,
+    "Paint": {
+      "tex": "metal_blue",
+      "tile": 180,
       "tint": [
-        0.7,
-        0.7,
-        0.72
+        1.7,
+        1.75,
+        1.8
       ],
-      "rough": 0.85,
-      "metal": 0.7,
+      "rough": 1.0,
+      "metal": 0.3,
       "grime": 0.2,
       "macro": 0.3
     },
-    "Grate": {
-      "tex": "metal_painted",
-      "tile": 70,
+    "Steel": {
+      "tex": "steel_plate",
+      "tile": 160,
       "tint": [
-        0.32,
-        0.32,
-        0.32
+        0.85,
+        0.85,
+        0.88
       ],
       "rough": 0.9,
-      "metal": 0.6,
+      "metal": 0.8,
+      "grime": 0.1,
+      "macro": 0.3
+    },
+    "Grate": {
+      "tex": "tread_plate",
+      "tile": 90,
+      "tint": [
+        0.8,
+        0.8,
+        0.8
+      ],
+      "rough": 0.95,
+      "metal": 0.7,
       "grime": 0.0,
       "macro": 0.3
+    },
+    "Container": {
+      "tex": "container",
+      "tile": 240,
+      "tint": [
+        0.85,
+        0.85,
+        0.85
+      ],
+      "rough": 1.0,
+      "metal": 0.3,
+      "grime": 0.35,
+      "macro": 0.5
+    },
+    "ContainerB": {
+      "tex": "container_red",
+      "tile": 240,
+      "tint": [
+        0.8,
+        0.8,
+        0.8
+      ],
+      "rough": 1.0,
+      "metal": 0.3,
+      "grime": 0.35,
+      "macro": 0.5
     },
     "Crate": {
       "tex": "crate",
@@ -129,74 +174,134 @@
       "macro": 0.3
     },
     "Asphalt": {
-      "tex": "ground",
-      "tile": 260,
+      "tex": "asphalt",
+      "tile": 420,
       "tint": [
-        0.55,
-        0.55,
-        0.55
+        0.75,
+        0.75,
+        0.75
       ],
       "rough": 1.0,
       "grime": 0.0,
-      "macro": 0.8
+      "macro": 0.9,
+      "antitile": 1.3
     },
     "Ceiling": {
-      "tex": "drywall",
-      "tile": 120,
+      "tex": "plaster",
+      "tile": 300,
       "tint": [
-        0.88,
-        0.88,
-        0.86
+        0.95,
+        0.95,
+        0.93
       ],
       "rough": 1.0,
       "grime": 0.0,
-      "macro": 0.3
+      "macro": 0.3,
+      "normal": 0.35
     },
     "Hazard": {
-      "tex": "metal_painted",
-      "tile": 100,
+      "tex": "plaster",
+      "tile": 160,
       "tint": [
-        1.5,
-        1.05,
-        0.12
+        1.0,
+        0.62,
+        0.05
       ],
-      "rough": 0.9,
-      "metal": 0.1,
+      "rough": 0.85,
       "grime": 0.3,
-      "macro": 0.3
-    },
-    "Paint": {
-      "tex": "metal_painted",
-      "tile": 120,
-      "tint": [
-        0.78,
-        0.8,
-        0.78
-      ],
-      "rough": 0.9,
-      "metal": 0.2,
-      "grime": 0.3,
-      "macro": 0.3
-    },
-    "Gunmetal": {
-      "tex": "steel",
-      "tile": 40,
-      "tint": [
-        0.14,
-        0.14,
-        0.15
-      ],
-      "rough": 0.7,
-      "metal": 0.9,
-      "grime": 0.0,
-      "macro": 0.0
+      "macro": 0.5
     }
   },
   "models": {
     "barrel": "barrel_03",
+    "barrel_red": {
+      "id": "Barrel_01",
+      "res": "1k"
+    },
+    "barrel_blue": {
+      "id": "Barrel_02",
+      "res": "1k"
+    },
     "crate": "wooden_crate_02",
-    "box": "cardboard_box_01",
-    "table": "WoodenTable_03",
-    "chair": "WoodenChair_01"
+    "box": {
+      "id": "cardboard_box_01",
+      "res": "1k"
+    },
+    "dresser": {
+      "id": "WoodenTable_03",
+      "res": "1k"
+    },
+    "desk": "metal_office_desk",
+    "chair": {
+      "id": "SchoolChair_01",
+      "res": "1k"
+    },
+    "monobloc": {
+      "id": "plastic_monobloc_chair_01",
+      "res": "1k"
+    },
+    "stool": {
+      "id": "wooden_stool_01",
+      "res": "1k"
+    },
+    "sofa": {
+      "id": "sofa_02",
+      "res": "1k"
+    },
+    "shelves": "steel_frame_shelves_01",
+    "shelves_wide": {
+      "id": "steel_frame_shelves_03",
+      "res": "1k"
+    },
+    "cabinet": {
+      "id": "drawer_cabinet",
+      "res": "1k"
+    },
+    "toolchest": {
+      "id": "metal_tool_chest",
+      "res": "1k"
+    },
+    "tv": {
+      "id": "Television_01",
+      "res": "1k"
+    },
+    "barrier": "concrete_road_barrier",
+    "barrier_b": "concrete_road_barrier_02",
+    "trashcan": {
+      "id": "metal_trash_can",
+      "res": "1k"
+    },
+    "extinguisher": {
+      "id": "korean_fire_extinguisher_01",
+      "res": "1k"
+    },
+    "powerbox": {
+      "id": "power_box_01",
+      "res": "1k"
+    },
+    "utilbox": {
+      "id": "utility_box_01",
+      "res": "1k"
+    },
+    "utilbox_green": {
+      "id": "utility_box_02",
+      "res": "1k"
+    },
+    "aircon": {
+      "id": "exterior_aircon_unit",
+      "res": "1k"
+    },
+    "tyre": {
+      "id": "old_tyre",
+      "res": "1k"
+    },
+    "wetfloor": {
+      "id": "WetFloorSign_01",
+      "res": "1k"
+    },
+    "walllamp": {
+      "id": "industrial_wall_lamp",
+      "res": "1k"
+    }
   }
 }

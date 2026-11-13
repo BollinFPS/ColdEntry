@@ -11,6 +11,8 @@ class UStaticMeshComponent;
 class UPointLightComponent;
 class UPoseableMeshComponent;
 class UAnimInstance;
+class UMaterialInstanceDynamic;
+class UAnimSequence;
 class ACEGameMode;
 class ACEBreachCharge;
 
@@ -118,6 +120,7 @@ public:
 	TArray<FCEHitRecord> HitsTaken;   // this life
 	TArray<FCEHitRecord> HitsDealt;
 	float LastDamageTime = -100.f;
+	float LastThrowTime = -100.f;      // a grenade left the hand (drives the throw animation)
 	FVector LastDamageFrom = FVector::ZeroVector;
 	float LastHitMarkerTime = -100.f;
 	bool bLastHitKill = false, bLastHitHead = false;
@@ -143,6 +146,7 @@ public:
 	// owner) copy its pose every frame and add crouch/lean and first-person hand IK on top.
 	bool HasRealBody() const { return bRealBody; }
 	void TickRigLate(float Dt);
+	void DebugAnim(int32 Kind);   // shot tour only: put the character mid-reload (0), mid-flinch (1) or mid-throw (2)
 	UPROPERTY() TObjectPtr<UPoseableMeshComponent> TPBody;
 	UPROPERTY() TObjectPtr<UPoseableMeshComponent> FPArms;
 	UPROPERTY() TObjectPtr<UStaticMeshComponent> TPWeapon[2];   // primary, pistol (in hand, third person)
@@ -170,6 +174,15 @@ private:
 	bool BuildRealViewmodels();
 	void TickFPArms(float Dt, int32 VMIdx, float RelA, float RP);
 	void StartRagdoll(const FVector& Dir);
+	void ApplyRealTeamLook();
+	// SWAT operator (Mixamo skeleton, clips blended in code): see CECharacterSwat.cpp
+	bool BuildSwatBody();
+	void ApplySwatTeamLook();
+	void TickSwatLate(float Dt);
+	void TickSwatFPArms(float Dt);
+	void StartSwatDeath();
+	void AddSwatClip(int32 Clip, float Weight, float Time);
+	void OverlaySwatClip(int32 Clip, float Time, float Weight);
 	UStaticMeshComponent* GearOnBone(FName Bone, const FVector& ActorSpaceOffset, const FVector& Half, ECESurf Surf, bool bSphere);
 	UStaticMeshComponent* Part(USceneComponent* Parent, const FVector& Loc, const FVector& Half, ECESurf Surf, bool bFirstPerson, const FRotator& Rot = FRotator::ZeroRotator);
 	ACEGameMode* GM() const;
@@ -213,7 +226,20 @@ private:
 	UPROPERTY() TSubclassOf<UAnimInstance> AnimPistol;
 	UPROPERTY() TArray<TObjectPtr<UStaticMeshComponent>> RigGear;
 	TArray<FName> RigGearBones;
+	UPROPERTY() TArray<TObjectPtr<UMaterialInstanceDynamic>> BodyMIDs;   // mannequin materials tinted per team
 	FVector FPArmShift = FVector::ZeroVector;
+
+	bool bSwat = false;
+	UPROPERTY() TObjectPtr<UAnimSequence> SwatClips[16];
+	float SwatLen[8] = {}, SwatTravel[8] = {};   // per locomotion loop: seconds, and cm of ground covered
+	TArray<int32> SwatSkelBone;      // mesh bone -> skeleton bone
+	TArray<uint8> SwatKind;          // per bone: fixed to the aim pose / lower body / upper body
+	TArray<FTransform> SwatAim;      // standing aim pose, bone space
+	TArray<FTransform> SwatAcc;      // blend scratch
+	TArray<float> SwatAccW;
+	FTransform SwatGripRel = FTransform::Identity;   // weapon relative to the right hand bone
+	FVector2D SwatDir = FVector2D(1.f, 0.f);
+	float SwatPhase = 0.f, SwatMove = 0.f, SwatSprint = 0.f, SwatDeathT = 0.f, SwatIdleT = 0.f;
 	bool bFPView = false;
 	int32 RigVMIdx = 0;
 	float RigRelA = 0.f, RigRP = 0.f;
